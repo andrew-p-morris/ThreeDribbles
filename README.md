@@ -17,9 +17,13 @@ A turn-based basketball strategy game where players compete to score 11 points b
 
 ## Archetypes
 
-- **Lefty** 👈: +25% on shots from the left side of the court
-- **Shooter** 🎯: +25% on open and slightly open shots
-- **Defender** 🛡️: -25% to all opponent shots
+- **Mid Range** 🎯: 75% mid-range, 50% paint, 50% 3PT (base zones)
+- **Shooter** 🌟: 75% 3PT, 50% mid-range, 25% paint (base zones)
+- **Defender** 🛡️: 75% paint, 50% mid-range, 25% 3PT (base zones) and applies an extra -5% to opponent shot chance when defending
+
+Notes:
+- Percentages are base zone values before contest/open/behind modifiers.
+- 3PT made shots count as 2 points; 2PT made shots count as 1 point.
 
 ## Game Modes
 
