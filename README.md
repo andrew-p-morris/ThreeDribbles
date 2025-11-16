@@ -1,117 +1,135 @@
-# 🏀 3 Dribbles - Basketball Strategy Game
+# 🏀 THREE DRIBBLES
 
-A turn-based basketball strategy game where players compete to score 11 points by strategically dribbling through positions on the court while defenders try to contest shots.
+Turn-based, head-to-head basketball strategy. Dribble and defend across an 11-spot half-court. Make reads, bait counters, and score in three moves or less.
 
-## Game Rules
+## Highlights
+- Turn-based offense/defense with simultaneous reveal
+- 11-position half-court (SVG grid), pixel-art characters and courts
+- Dynamic shot animation with arc, distance-based timing, and result banner
+- SFX: whistle (3PT attempts), swish (made), clank (miss) with master volume and mute
+- Archetypes with distinct strengths: Mid Range, Shooter, Defender
+- Modes: Local Multiplayer, Practice vs AI (Easy/Medium/Hard), Online (menu, friends)
+- Cosmetics and themes with character preview and unlock-all for testing
 
-1. **Objective**: First player to 11 points wins
-2. **Turns**: Each possession, the offense gets 3 dribbles before taking a shot
-3. **Movement**: Players can only move to adjacent positions on the court
-4. **Scoring**: 
-   - 3-point shots (beyond the arc) = 2 points
-   - 2-point shots (inside the arc) = 1 point
-5. **Shot Success**: Based on defender distance
-   - 2+ squares away (open): 75% chance
-   - 1 square away (slightly open): 50% chance
-   - 0 squares (contested): 0% chance
+## Core Rules
+- First to 11 points wins, must win by 2. If score reaches 30, next make wins (sudden death).
+- 3PT shots = 2 points; 2PT shots = 1 point.
+- Offense can dribble up to 3 times (adjacent positions). “Shoot Now” is available at any time.
+- Defense picks a spot to cut off or can “Contest” by staying.
+- Make it = keep the ball; Miss it = other player’s ball; positions reset: offense to 3, defense to 8.
+- If defender lands on the same spot as offense, offense is “blocked” (dribble penalty).
+  - Blocking from behind (adjacent but further from basket) applies half penalty.
 
 ## Archetypes
-
-- **Mid Range** 🎯: 75% mid-range, 50% paint, 50% 3PT (base zones)
-- **Shooter** 🌟: 75% 3PT, 50% mid-range, 25% paint (base zones)
-- **Defender** 🛡️: 75% paint, 50% mid-range, 25% 3PT (base zones) and applies an extra -5% to opponent shot chance when defending
+- Mid Range 🎯: Base 75% mid-range, 50% paint, 50% 3PT
+- Shooter 🌟: Base 75% 3PT, 50% mid-range, 25% paint
+- Defender 🛡️: Base 75% paint, 50% mid-range, 25% 3PT, plus an extra -5% to opponent’s shot chance when defending
 
 Notes:
-- Percentages are base zone values before contest/open/behind modifiers.
-- 3PT made shots count as 2 points; 2PT made shots count as 1 point.
+- These are base zone values. Final percentage applies contest/open/behind modifiers.
+- The scoreboard displays FG% and 3PT% for each player and per game mode in Stats.
 
-## Game Modes
+## AI (Practice Mode)
+Difficulty levels and archetype-aware behavior:
+- Easy: 40% optimal / 60% random, avoids repeating identical openings.
+- Medium: EV-based move selection with archetype bias (prefers mid/3PT/paint by archetype), variety via epsilon-greedy, mixed defensive strategies (contest, cut-off, mirror, bait).
+- Hard: Depth-1 minimax EV (simulate best defense), strong archetype bias, softmax sampling for top choices, more denial of preferred zones on defense, no-repetition heuristics.
 
-- **Local Multiplayer**: Pass-and-play on the same device
-- **vs Computer**: Three difficulty levels (Easy, Medium, Hard)
-- **Online**: (Coming soon) Play against opponents online
+AI flow polish:
+- AI can contest on any move (including the first).
+- Status messages trimmed; UI hides while AI auto-picks in AI turns.
 
-## Getting Started
+## Shot Logic & Animation
+- The ball animates from shooter to basket with a parabolic arc.
+- Duration is distance-based:
+  - Paint: ~1.5s
+  - Close: ~3.0s
+  - Medium: ~3.5s
+  - Far: ~4.5–5.0s (e.g., top of key)
+- Missed shots hit the rim and ricochet.
+- Result banner appears after animation completes (made/missed + contested %).
+- SFX:
+  - 3PT attempts: whistle plays at animation start
+  - On completion: swish (made) or clank (miss)
+- SFX respect Settings mute and master volume.
 
-### Prerequisites
+## UI & UX
+- Single top scoreboard with names, archetype, scores, FG%/3PT%.
+- Action controls repositioned to the right of the court, below the extended scoreboard.
+- Block popup: “-1 Dribble” appears under action buttons when cut off.
+- “Shoot Now” re-added: offense can force a shot after defense picks; defense UI hides during shot.
+- Character/court pixel-art with refined stroke widths; Afro preserved for “Rocket”.
 
-- Node.js (v16 or higher)
-- npm or yarn
+## Cosmetics & Themes
+- Character is selected in Settings; gameplay only prompts for archetype.
+- Categories: Balls, Headwear, Uniform, Armwear, Socks, Footwear, Jewelry (renamed from Chains), Eyewear (glasses/sunglasses).
+- 5 items per category (except jewelry with 2). Black/white items unlocked; only orange ball to start.
+- Tuxedos (black and white) cover arms/legs; red bowtie.
+- Court themes: Stadium, Beach, Blacktop, High School (default), unlockable Snow and Jungle.
+- “Unlock All” button for testing cosmetics and court themes.
 
-### Installation
+## Online (In-Progress)
+- Online menu with tabs: Play, Leaderboard, Friends.
+- Leaderboard: games played, win%, FG%, 3PT%.
+- Friends: search/add, accept/decline requests, unfriend, and challenge (UI wired; backend pending).
+- Matchmaking and online game state via Firebase (planned).
 
-1. Install dependencies:
+## Settings
+- System:
+  - Mute toggle
+  - Master volume slider (persists)
+  - Username change (max 10 chars; uniqueness checks when backend enabled)
+  - Delete account (backend integration pending)
+- Stats tab: breakdown by mode (Local, Practice Easy/Medium/Hard, Online)
+- Shop tab (placeholder for future content)
+
+## Tech
+- React + TypeScript + Vite
+- State: React Context (Auth, Game, Settings)
+- Graphics: SVG; pixel-art characters and courts
+- Animation: requestAnimationFrame
+- SFX: WebAudio procedural sounds (no large assets)
+- Backend (planned/partial): Firebase Auth, Firestore, Realtime Database
+
+## Development
+
+Prerequisites:
+- Node.js 16+
+- npm
+
+Install and run:
 ```bash
 npm install
-```
-
-2. Set up Firebase (optional, for authentication and online play):
-   - Create a Firebase project at https://console.firebase.google.com
-   - Enable Authentication, Firestore, and Realtime Database
-   - Copy your Firebase config to `src/firebase/config.ts`
-
-3. Run the development server:
-```bash
 npm run dev
 ```
+Open http://localhost:3000
 
-4. Open your browser to `http://localhost:3000`
+Build:
+```bash
+npm run build
+npm run preview
+```
 
-## Playing Without Firebase
-
-The game will work locally without Firebase configuration for:
-- Local multiplayer mode
-- vs Computer mode
-
-To use authentication and online features, you'll need to set up Firebase.
-
-## Tech Stack
-
-- **Frontend**: React + TypeScript + Vite
-- **Styling**: Custom CSS
-- **Backend**: Firebase (Authentication, Firestore, Realtime Database)
-- **Routing**: React Router
+Optional Firebase setup (for auth/online):
+1) Create a Firebase project  
+2) Enable Auth, Firestore, Realtime Database  
+3) Add keys to `src/firebase/config.ts`
 
 ## Project Structure
-
 ```
 src/
-├── components/      # Reusable UI components (Court, etc.)
-├── contexts/        # React contexts (Auth, Game)
-├── firebase/        # Firebase configuration
-├── game/            # Core game logic
-│   ├── AI.ts           # AI opponent logic
-│   ├── CourtPositions.ts  # Court layout and positions
-│   ├── GameEngine.ts    # Game state management
-│   └── ShotCalculator.ts  # Shot probability calculations
-├── screens/         # Main app screens
-├── types/           # TypeScript type definitions
-└── main.tsx         # App entry point
+├── audio/            # WebAudio SFX manager
+├── components/       # UI components (Court, PixelCharacter, etc.)
+├── contexts/         # Auth, Game, Settings contexts
+├── firebase/         # Firebase config (optional)
+├── game/             # Core game logic (AI, Engine, Positions, Shots)
+├── screens/          # Screens (Home, Game, Settings, Online, etc.)
+├── types/            # Type definitions
+└── main.tsx          # Entry
 ```
 
-## Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-
-## Future Features
-
-- [ ] Online multiplayer with matchmaking
-- [ ] Global leaderboards
-- [ ] Tournament mode
-- [ ] More archetypes
-- [ ] Custom court themes
-- [ ] Shot animations and sound effects
-- [ ] Mobile app (iOS/Android) via Capacitor
-
 ## License
-
 MIT
 
 ## Credits
-
 Created with ❤️ by Drew
-
-
-
