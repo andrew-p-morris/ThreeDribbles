@@ -1,0 +1,132 @@
+.profile-screen {
+  padding: 20px;
+}
+
+.profile-container {
+  width: 100%;
+  max-width: 800px;
+}
+
+.profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.profile-header .header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-header .username {
+  font-weight: 600;
+  font-size: 16px;
+  color: #f4e4c1;
+}
+
+.profile-header h1 {
+  font-size: 32px;
+  margin: 0;
+}
+
+.btn-back {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-back:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary-small {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 16px;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary-small:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.profile-card {
+  text-align: center;
+  padding: 40px;
+  margin-bottom: 32px;
+}
+
+.profile-avatar {
+  margin-bottom: 20px;
+}
+
+.avatar-circle {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  margin: 0 auto;
+}
+
+.profile-name {
+  font-size: 28px;
+  margin: 0 0 8px 0;
+}
+
+.profile-email {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 16px;
+}
+
+.stats-section h3 {
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.stat-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 900;
+  color: #ff6b35;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.7);
+}
+

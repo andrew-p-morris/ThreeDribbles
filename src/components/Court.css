@@ -1,0 +1,137 @@
+.court-container {
+  width: 100%;
+  max-width: 800px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 0;
+  flex: 1;
+}
+
+.court-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 0;
+  padding: 10px;
+  box-shadow: 0 8px 0 #000, 0 8px 20px rgba(0, 0, 0, 0.8);
+  image-rendering: pixelated;
+  transition: background 0.3s ease;
+}
+
+.position-clickable {
+  cursor: pointer;
+}
+
+.court-legend {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.legend-icon {
+  font-size: 20px;
+}
+
+.legend-icon.offense {
+  color: #ff6b35;
+}
+
+.legend-icon.defense {
+  color: #4a9eff;
+}
+
+.legend-icon.available {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.shot-ball {
+  transform-origin: center center;
+}
+
+.shot-ball.made {
+  animation: shootBallMade 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.shot-ball.missed {
+  animation: shootBallMissed 2.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Made shot: smooth arc directly into basket */
+@keyframes shootBallMade {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  40% {
+    transform: translate(
+      calc((var(--end-x) - var(--start-x)) * 0.4), 
+      calc((var(--end-y) - var(--start-y)) * 0.25)
+    ) scale(1.2);
+    opacity: 1;
+  }
+  80% {
+    transform: translate(
+      calc((var(--end-x) - var(--start-x)) * 0.9), 
+      calc((var(--end-y) - var(--start-y)) * 0.95)
+    ) scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(
+      calc(var(--end-x) - var(--start-x)), 
+      calc(var(--end-y) - var(--start-y))
+    ) scale(0.4);
+    opacity: 0;
+  }
+}
+
+/* Missed shot: hit rim and bounce off */
+@keyframes shootBallMissed {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  35% {
+    transform: translate(
+      calc((var(--end-x) - var(--start-x)) * 0.35), 
+      calc((var(--end-y) - var(--start-y)) * 0.25)
+    ) scale(1.2);
+    opacity: 1;
+  }
+  65% {
+    /* Hit the rim */
+    transform: translate(
+      calc(var(--end-x) - var(--start-x)), 
+      calc(var(--end-y) - var(--start-y))
+    ) scale(1.1);
+    opacity: 1;
+  }
+  75% {
+    /* Slight bounce back from rim */
+    transform: translate(
+      calc((var(--end-x) - var(--start-x)) * 0.98 + (var(--bounce-x) - var(--end-x)) * 0.1), 
+      calc((var(--end-y) - var(--start-y)) * 0.98 + (var(--bounce-y) - var(--end-y)) * 0.1)
+    ) scale(1.0);
+    opacity: 1;
+  }
+  100% {
+    /* Bounce away from basket */
+    transform: translate(
+      calc(var(--bounce-x) - var(--start-x)), 
+      calc(var(--bounce-y) - var(--start-y))
+    ) scale(0.6);
+    opacity: 0.3;
+  }
+}
+
