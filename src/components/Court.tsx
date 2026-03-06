@@ -255,57 +255,6 @@ function Court({
         {/* Basket - Orange with theme line color outline (bigger) */}
         <circle cx="35" cy="72" r={basketRadius} fill="#ff6b35" stroke={theme.lineColor} strokeWidth="0.4" />
         
-        {/* Shot animation - pixelated basketball */}
-        {shotAnimation?.show && ballPosition && (
-          <g className="shot-ball-group">
-            {/* Define clip path for the ball to keep lines inside */}
-            <defs>
-              <clipPath id="ballClip">
-                <circle 
-                  cx={ballPosition.x} 
-                  cy={ballPosition.y} 
-                  r="1.2"
-                />
-              </clipPath>
-            </defs>
-            {/* Basketball circle - match size from player's hand (r=1.2) */}
-            <circle 
-              cx={ballPosition.x} 
-              cy={ballPosition.y} 
-              r="1.2" 
-              fill={ballColor} 
-              stroke="#000" 
-              strokeWidth="0.15"
-            />
-            {/* Lines clipped to circle */}
-            <g clipPath="url(#ballClip)">
-              {/* Vertical line */}
-              <line 
-                x1={ballPosition.x} 
-                y1={ballPosition.y - 1.2} 
-                x2={ballPosition.x} 
-                y2={ballPosition.y + 1.2} 
-                stroke="#000" 
-                strokeWidth="0.15"
-              />
-              {/* Top curve */}
-              <path 
-                d={`M ${ballPosition.x - 1.2} ${ballPosition.y} Q ${ballPosition.x} ${ballPosition.y - 0.5} ${ballPosition.x + 1.2} ${ballPosition.y}`}
-                stroke="#000" 
-                strokeWidth="0.15" 
-                fill="none"
-              />
-              {/* Bottom curve */}
-              <path 
-                d={`M ${ballPosition.x - 1.2} ${ballPosition.y} Q ${ballPosition.x} ${ballPosition.y + 1.1} ${ballPosition.x + 1.2} ${ballPosition.y}`}
-                stroke="#000" 
-                strokeWidth="0.15" 
-                fill="none"
-              />
-            </g>
-          </g>
-        )}
-        
         {/* Position markers */}
         {positions.map((position) => {
           const isOffense = position.id === offensePosition
@@ -361,7 +310,7 @@ function Court({
                         character={offenseCharacter} 
                         x={position.x - 2} 
                         y={position.y}
-                        hasBasketball={true}
+                        hasBasketball={!ballPosition}
                         equippedCosmetics={isPlayer1Offense ? player1Cosmetics : player2Cosmetics}
                       />
                       <CourtPixelCharacter 
@@ -384,7 +333,7 @@ function Court({
                       character={offenseCharacter} 
                       x={position.x} 
                       y={position.y}
-                      hasBasketball={true}
+                      hasBasketball={!ballPosition}
                       equippedCosmetics={isPlayer1Offense ? player1Cosmetics : player2Cosmetics}
                     />
                   ) : isDefense ? (
@@ -399,6 +348,30 @@ function Court({
             </g>
           )
         })}
+        
+        {/* Shot animation - pixelated basketball (drawn on top so it leaves the player visibly) */}
+        {shotAnimation?.show && ballPosition && (
+          <g className="shot-ball-group">
+            <defs>
+              <clipPath id="ballClip">
+                <circle cx={ballPosition.x} cy={ballPosition.y} r="1.2" />
+              </clipPath>
+            </defs>
+            <circle
+              cx={ballPosition.x}
+              cy={ballPosition.y}
+              r="1.2"
+              fill={ballColor}
+              stroke="#000"
+              strokeWidth="0.15"
+            />
+            <g clipPath="url(#ballClip)">
+              <line x1={ballPosition.x} y1={ballPosition.y - 1.2} x2={ballPosition.x} y2={ballPosition.y + 1.2} stroke="#000" strokeWidth="0.15" />
+              <path d={`M ${ballPosition.x - 1.2} ${ballPosition.y} Q ${ballPosition.x} ${ballPosition.y - 0.5} ${ballPosition.x + 1.2} ${ballPosition.y}`} stroke="#000" strokeWidth="0.15" fill="none" />
+              <path d={`M ${ballPosition.x - 1.2} ${ballPosition.y} Q ${ballPosition.x} ${ballPosition.y + 1.1} ${ballPosition.x + 1.2} ${ballPosition.y}`} stroke="#000" strokeWidth="0.15" fill="none" />
+            </g>
+          </g>
+        )}
         
         {/* Shot result banner - displayed on court above half court line */}
         {shotResult && (

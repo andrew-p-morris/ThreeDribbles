@@ -25,6 +25,8 @@ type AuthContextType = {
   updateUserCharacter: (characterId: string) => void
   updateUserCosmetics: (cosmetics: EquippedCosmetics) => void
   updateUserStats: (modeKey: string, won: boolean, points: number, shotsMade: number, shotsAttempted: number, threesMade: number, threesAttempted: number) => void
+  updateUserUnlockedCosmetics: (newlyUnlockedIds: string[]) => void
+  updateUserCoins: (delta: number) => void
   updateUsername: (newUsername: string) => Promise<{ success: boolean, error?: string }>
   checkUsernameAvailable: (username: string) => Promise<boolean>
 }
@@ -42,6 +44,16 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+
+  function persistLocalUser(user: User) {
+    localStorage.setItem('guestUser', JSON.stringify(user))
+  }
+
+  function persistFirebaseUser(uid: string, patch: Partial<User>) {
+    if (!db) return
+    const userRef = doc(db, 'users', uid)
+    updateDoc(userRef, patch).catch(console.error)
+  }
 
   async function createUserDocument(firebaseUser: FirebaseUser, isGuest: boolean, username?: string) {
     if (!isFirebaseAvailable || !db) {
@@ -142,33 +154,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function updateUserCharacter(characterId: string) {
-    if (!currentUser) return
-
-    const updatedUser = { ...currentUser, selectedCharacter: characterId }
-    setCurrentUser(updatedUser)
-
-    // Save to storage
-    if (!isFirebaseAvailable || !db) {
-      localStorage.setItem('guestUser', JSON.stringify(updatedUser))
-    } else {
-      const userRef = doc(db, 'users', currentUser.uid)
-      updateDoc(userRef, { selectedCharacter: characterId }).catch(console.error)
-    }
+    setCurrentUser(prev => {
+      if (!prev) return prev
+      const next = { ...prev, selectedCharacter: characterId }
+      if (!isFirebaseAvailable || !db) {
+        persistLocalUser(next)
+      } else {
+        persistFirebaseUser(prev.uid, { selectedCharacter: characterId })
+      }
+      return next
+    })
   }
 
   function updateUserCosmetics(cosmetics: EquippedCosmetics) {
-    if (!currentUser) return
-
-    const updatedUser = { ...currentUser, equippedCosmetics: cosmetics }
-    setCurrentUser(updatedUser)
-
-    // Save to storage
-    if (!isFirebaseAvailable || !db) {
-      localStorage.setItem('guestUser', JSON.stringify(updatedUser))
-    } else {
-      const userRef = doc(db, 'users', currentUser.uid)
-      updateDoc(userRef, { equippedCosmetics: cosmetics }).catch(console.error)
-    }
+    setCurrentUser(prev => {
+      if (!prev) return prev
+      const next = { ...prev, equippedCosmetics: cosmetics }
+      if (!isFirebaseAvailable || !db) {
+        persistLocalUser(next)
+      } else {
+        persistFirebaseUser(prev.uid, { equippedCosmetics: cosmetics })
+      }
+      return next
+    })
   }
 
   function updateUserStats(
@@ -180,62 +188,94 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     threesMade: number, 
     threesAttempted: number
   ) {
-    if (!currentUser) return
+    setCurrentUser(prev => {
+      if (!prev) return prev
 
-    // Update overall stats
-    const newStats = { ...currentUser.stats }
-    newStats.totalGames++
-    newStats.totalPoints += points
-    if (won) {
-      newStats.wins++
-    } else {
-      newStats.losses++
-    }
-
-    // Update mode-specific stats
-    const existingModeStats = (newStats as any)[modeKey]
-    const defaultStats: ModeStats = {
-      wins: 0,
-      losses: 0,
-      totalGames: 0,
-      totalPoints: 0,
-      shotsMade: 0,
-      shotsAttempted: 0,
-      threesMade: 0,
-      threesAttempted: 0
-    }
-    
-    const currentModeStats: ModeStats = (existingModeStats && typeof existingModeStats === 'object') 
-      ? existingModeStats 
-      : defaultStats
-
-    const newModeStats: ModeStats = {
-      wins: currentModeStats.wins + (won ? 1 : 0),
-      losses: currentModeStats.losses + (won ? 0 : 1),
-      totalGames: currentModeStats.totalGames + 1,
-      totalPoints: currentModeStats.totalPoints + points,
-      shotsMade: currentModeStats.shotsMade + shotsMade,
-      shotsAttempted: currentModeStats.shotsAttempted + shotsAttempted,
-      threesMade: currentModeStats.threesMade + threesMade,
-      threesAttempted: currentModeStats.threesAttempted + threesAttempted
-    }
-
-    (newStats as any)[modeKey] = newModeStats
-
-    const updatedUser = { ...currentUser, stats: newStats }
-    setCurrentUser(updatedUser)
-
-    // Save to storage
-    if (!isFirebaseAvailable || !db) {
-      localStorage.setItem('guestUser', JSON.stringify(updatedUser))
-    } else {
-      try {
-        const userRef = doc(db, 'users', currentUser.uid)
-        updateDoc(userRef, { stats: newStats }).catch(console.error)
-      } catch (error) {
-        console.error('Error updating stats:', error)
+      // Update overall stats
+      const newStats = { ...prev.stats }
+      newStats.totalGames++
+      newStats.totalPoints += points
+      if (won) {
+        newStats.wins++
+      } else {
+        newStats.losses++
       }
-    }
+
+      // Update mode-specific stats
+      const existingModeStats = (newStats as any)[modeKey]
+      const defaultStats: ModeStats = {
+        wins: 0,
+        losses: 0,
+        totalGames: 0,
+        totalPoints: 0,
+        shotsMade: 0,
+        shotsAttempted: 0,
+        threesMade: 0,
+        threesAttempted: 0
+      }
+
+      const currentModeStats: ModeStats = (existingModeStats && typeof existingModeStats === 'object')
+        ? existingModeStats
+        : defaultStats
+
+      const newModeStats: ModeStats = {
+        wins: currentModeStats.wins + (won ? 1 : 0),
+        losses: currentModeStats.losses + (won ? 0 : 1),
+        totalGames: currentModeStats.totalGames + 1,
+        totalPoints: currentModeStats.totalPoints + points,
+        shotsMade: currentModeStats.shotsMade + shotsMade,
+        shotsAttempted: currentModeStats.shotsAttempted + shotsAttempted,
+        threesMade: currentModeStats.threesMade + threesMade,
+        threesAttempted: currentModeStats.threesAttempted + threesAttempted
+      }
+
+      ;(newStats as any)[modeKey] = newModeStats
+
+      const next = { ...prev, stats: newStats }
+
+      if (!isFirebaseAvailable || !db) {
+        persistLocalUser(next)
+      } else {
+        persistFirebaseUser(prev.uid, { stats: newStats })
+      }
+
+      return next
+    })
+  }
+
+  function updateUserUnlockedCosmetics(newlyUnlockedIds: string[]) {
+    if (newlyUnlockedIds.length === 0) return
+    setCurrentUser(prev => {
+      if (!prev) return prev
+      const existing = prev.unlockedCosmetics || []
+      const merged = [...new Set([...existing, ...newlyUnlockedIds])]
+      const next = { ...prev, unlockedCosmetics: merged }
+
+      if (!isFirebaseAvailable || !db) {
+        persistLocalUser(next)
+      } else {
+        persistFirebaseUser(prev.uid, { unlockedCosmetics: merged })
+      }
+
+      return next
+    })
+  }
+
+  function updateUserCoins(delta: number) {
+    setCurrentUser(prev => {
+      if (!prev) return prev
+      const current = prev.coins ?? 0
+      const newCoins = Math.max(0, current + delta)
+      const next = { ...prev, coins: newCoins }
+
+      if (!isFirebaseAvailable || !db) {
+        persistLocalUser(next)
+      } else {
+        persistFirebaseUser(prev.uid, { coins: newCoins })
+      }
+
+      return next
+    })
   }
 
   async function checkUsernameAvailable(username: string): Promise<boolean> {
@@ -293,12 +333,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Update username
-    const updatedUser = { ...currentUser, displayName: newUsername }
-    setCurrentUser(updatedUser)
-
-    // Save to storage
     if (!isFirebaseAvailable || !db) {
-      localStorage.setItem('guestUser', JSON.stringify(updatedUser))
+      setCurrentUser(prev => {
+        if (!prev) return prev
+        const next = { ...prev, displayName: newUsername }
+        persistLocalUser(next)
+        return next
+      })
       // Track username in local list
       const localUsernames = localStorage.getItem('localUsernames')
       const usernames = localUsernames ? JSON.parse(localUsernames) : []
@@ -309,6 +350,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true }
     } else {
       try {
+        setCurrentUser(prev => {
+          if (!prev) return prev
+          const next = { ...prev, displayName: newUsername }
+          return next
+        })
         const userRef = doc(db, 'users', currentUser.uid)
         await updateDoc(userRef, { displayName: newUsername })
         return { success: true }
@@ -357,6 +403,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateUserCharacter,
     updateUserCosmetics,
     updateUserStats,
+    updateUserUnlockedCosmetics,
+    updateUserCoins,
     updateUsername,
     checkUsernameAvailable
   }

@@ -4,13 +4,13 @@ import { useAuth } from '../contexts/AuthContext'
 import { useSettings, COURT_THEME_DATA } from '../contexts/SettingsContext'
 import { CHARACTERS } from '../types/Character'
 import { COSMETIC_ITEMS, EquippedCosmetics, CosmeticCategory, getCosmeticById } from '../types/Cosmetics'
-import { CourtThemeId } from '../types/CourtTheme'
+import { getUnlockInstruction, getCosmeticPrice } from '../game/Unlocks'
 import { PixelCharacter } from '../components/PixelCharacter'
 import './SettingsScreen.css'
 
 function SettingsScreen() {
   const navigate = useNavigate()
-  const { currentUser, updateUserCharacter, updateUserCosmetics, updateUsername, checkUsernameAvailable, signOut } = useAuth()
+  const { currentUser, updateUserCharacter, updateUserCosmetics, updateUserUnlockedCosmetics, updateUserCoins, updateUsername, signOut } = useAuth()
   const { courtTheme, setCourtTheme, unlockedThemes, unlockAllThemes, soundMuted, setSoundMuted, volume, setVolume } = useSettings()
   
   const [newUsername, setNewUsername] = useState('')
@@ -19,8 +19,10 @@ function SettingsScreen() {
   
   const [selectedCharacter, setSelectedCharacter] = useState<string>(currentUser?.selectedCharacter || 'rocket')
   const [equippedCosmetics, setEquippedCosmetics] = useState<EquippedCosmetics>(currentUser?.equippedCosmetics || {})
-  const [unlockedCosmetics, setUnlockedCosmetics] = useState<string[]>([])
+  const [selectedLockedItemId, setSelectedLockedItemId] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'character' | 'cosmetics' | 'court' | 'stats' | 'shop' | 'system'>('character')
+  
+  const userUnlockedCosmetics = currentUser?.unlockedCosmetics || []
   
   useEffect(() => {
     if (currentUser) {
@@ -30,11 +32,8 @@ function SettingsScreen() {
   }, [currentUser])
 
   function handleUnlockAll() {
-    // Unlock all cosmetics
     const allCosmeticIds = COSMETIC_ITEMS.map(item => item.id)
-    setUnlockedCosmetics(allCosmeticIds)
-    
-    // Unlock all court themes
+    updateUserUnlockedCosmetics(allCosmeticIds)
     unlockAllThemes()
   }
 
@@ -62,6 +61,15 @@ function SettingsScreen() {
   }
 
   const currentCharacter = CHARACTERS.find(c => c.id === selectedCharacter) || CHARACTERS[0]
+
+  // Preview cosmetics: when a locked item is selected, show it on the character (never saved)
+  const previewCosmetics: EquippedCosmetics = selectedLockedItemId
+    ? (() => {
+        const item = getCosmeticById(selectedLockedItemId)
+        if (!item) return equippedCosmetics
+        return { ...equippedCosmetics, [item.category]: selectedLockedItemId }
+      })()
+    : equippedCosmetics
   
   const groupedCosmetics = {
     balls: COSMETIC_ITEMS.filter(item => item.category === 'balls'),
@@ -99,6 +107,9 @@ function SettingsScreen() {
           </button>
           <h1>⚙️ SETTINGS</h1>
           <div className="header-right">
+            <span className="coins-display" title="Coins (win Practice: Easy 1, Medium 3, Hard 5)">
+              🪙 {currentUser?.coins ?? 0}
+            </span>
             <span className="username">{currentUser?.displayName || 'Guest'}</span>
             <button onClick={handleUnlockAll} className="btn-unlock">
               🔓 Unlock All
@@ -178,47 +189,111 @@ function SettingsScreen() {
         )}
 
         {activeTab === 'cosmetics' && (
-          <div className="settings-section">
-            <div className="cosmetics-preview">
-              <h2>Live Preview</h2>
-              <div className="character-preview card">
-                <PixelCharacter 
-                  character={currentCharacter} 
-                  size={120}
-                  equippedCosmetics={equippedCosmetics}
-                  hasBasketball={true}
-                />
-              </div>
-            </div>
-
-            {Object.entries(groupedCosmetics).map(([category, items]) => (
-              <div key={category} className="cosmetic-category">
-                <h3>
-                  {category === 'jewelry' ? 'JEWELRY' : 
-                   category === 'eyewear' ? 'EYEWEAR' : 
-                   category.replace('_', ' ').toUpperCase()}
-                </h3>
-                <div className="cosmetic-grid">
-                  {items.map(item => {
-                    const isLocked = item.locked && !unlockedCosmetics.includes(item.id)
-                    const isEquipped = equippedCosmetics[item.category as CosmeticCategory] === item.id
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => !isLocked && handleCosmeticToggle(item.id)}
-                        className={`card cosmetic-card ${isEquipped ? 'equipped' : ''} ${isLocked ? 'locked' : ''}`}
-                        disabled={isLocked}
-                      >
-                        <div className="cosmetic-emoji">{item.emoji}</div>
-                        <div className="cosmetic-name">{item.name}</div>
-                        {isEquipped && <div className="equipped-badge">✓</div>}
-                        {isLocked && <div className="lock-icon">🔒</div>}
-                      </button>
-                    )
-                  })}
+          <div className="settings-section cosmetics-section">
+            <div className="cosmetics-content">
+              <div className="cosmetics-main">
+                <div className="cosmetics-preview">
+                  <h2>Live Preview</h2>
+                  <div className="character-preview card">
+                    <PixelCharacter 
+                      character={currentCharacter} 
+                      size={120}
+                      equippedCosmetics={previewCosmetics}
+                      hasBasketball={true}
+                    />
+                  </div>
                 </div>
+
+                {Object.entries(groupedCosmetics).map(([category, items]) => (
+                  <div key={category} className="cosmetic-category">
+                    <h3>
+                      {category === 'jewelry' ? 'JEWELRY' : 
+                       category === 'eyewear' ? 'EYEWEAR' : 
+                       category.replace('_', ' ').toUpperCase()}
+                    </h3>
+                    <div className="cosmetic-grid">
+                      {items.map(item => {
+                        const isLocked = item.locked && !userUnlockedCosmetics.includes(item.id)
+                        const isEquipped = equippedCosmetics[item.category as CosmeticCategory] === item.id
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              if (isLocked) {
+                                setSelectedLockedItemId(item.id)
+                              } else {
+                                handleCosmeticToggle(item.id)
+                              }
+                            }}
+                            className={`card cosmetic-card ${isEquipped ? 'equipped' : ''} ${isLocked ? 'locked' : ''} ${selectedLockedItemId === item.id ? 'selected-locked' : ''}`}
+                          >
+                            <div className="cosmetic-emoji">{item.emoji}</div>
+                            <div className="cosmetic-name">{item.name}</div>
+                            {isEquipped && <div className="equipped-badge">✓</div>}
+                            {isLocked && <div className="lock-icon">🔒</div>}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+
+              {selectedLockedItemId && (
+                <aside className="unlock-instructions-panel card">
+                  {(() => {
+                    const item = getCosmeticById(selectedLockedItemId)
+                    const price = getCosmeticPrice(selectedLockedItemId)
+                    const coins = currentUser?.coins ?? 0
+                    const canBuy = price > 0 && coins >= price
+                    return (
+                      <>
+                        <div className="unlock-panel-header">
+                          <h4>How to unlock</h4>
+                          <button
+                            type="button"
+                            className="btn-close-unlock"
+                            onClick={() => setSelectedLockedItemId(null)}
+                            aria-label="Close"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        {item && (
+                          <>
+                            <div className="unlock-panel-item">
+                              <span className="unlock-panel-emoji">{item.emoji}</span>
+                              <span className="unlock-panel-name">{item.name}</span>
+                            </div>
+                            <p className="unlock-panel-instruction">
+                              {getUnlockInstruction(selectedLockedItemId)}
+                            </p>
+                            {price > 0 && (
+                              <div className="unlock-panel-purchase">
+                                <span className="unlock-panel-price">🪙 {price} coins</span>
+                                <button
+                                  type="button"
+                                  className="btn-buy"
+                                  disabled={!canBuy}
+                                  onClick={() => {
+                                    if (!canBuy) return
+                                    updateUserCoins(-price)
+                                    updateUserUnlockedCosmetics([selectedLockedItemId])
+                                    setSelectedLockedItemId(null)
+                                  }}
+                                >
+                                  Buy
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )
+                  })()}
+                </aside>
+              )}
+            </div>
           </div>
         )}
 

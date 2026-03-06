@@ -9,7 +9,7 @@ import './GameScreen.css'
 import { audioManager } from '../audio/AudioManager'
 
 function GameScreen() {
-  const { gameState, selectPosition, resetGame, restartCurrentGame, lastShotResult, showShotBanner, showBlockPopup } = useGame()
+  const { gameState, selectPosition, resetGame, restartCurrentGame, lastShotResult, showShotBanner, showBlockPopup, completeShotAnimation } = useGame()
   const { currentUser } = useAuth()
   const { soundMuted, volume, setSoundMuted } = useSettings()
   const navigate = useNavigate()
@@ -22,6 +22,11 @@ function GameScreen() {
   const [showBlockIndicator, setShowBlockIndicator] = useState(false)
   const [showPauseMenu, setShowPauseMenu] = useState(false)
   const [showRestartConfirm, setShowRestartConfirm] = useState(false)
+
+  const coinsEarned =
+    gameState?.status === 'finished' && gameState.mode === 'ai' && gameState.aiDifficulty
+      ? (gameState.winner === (currentUser?.displayName || '') ? { easy: 1, medium: 3, hard: 5 }[gameState.aiDifficulty] : 0)
+      : null
 
   // Keep AudioManager mute in sync
   useEffect(() => {
@@ -193,12 +198,11 @@ function GameScreen() {
           frame++
           requestAnimationFrame(animate)
         } else {
-          // Animation complete
+          // Animation complete - update score and show banner via context
           setBallPosition(null)
           setShotAnimation(null)
           setShowShotResult(true)
           animationInProgressRef.current = false
-          // Play result SFX (swish or clank)
           try {
             if (lastShotResult.made) {
               audioManager.playSwish(0.55)
@@ -206,7 +210,7 @@ function GameScreen() {
               audioManager.playClank(0.65)
             }
           } catch {}
-          // Don't clear lastAnimatedShotRef here - keep it until lastShotResult is cleared
+          completeShotAnimation()
         }
       }
       
@@ -492,6 +496,9 @@ function GameScreen() {
                   {gameState.player2.username}: {gameState.player2.score}
                 </div>
               </div>
+              {coinsEarned !== null && (
+                <div className="coins-earned">Coins earned: +{coinsEarned}</div>
+              )}
               <div className="game-over-buttons">
                 <button onClick={handleRematch} className="btn btn-primary">
                   {gameState.mode === 'online' ? 'Rematch' : 'New Game'}

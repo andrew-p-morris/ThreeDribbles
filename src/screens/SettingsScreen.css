@@ -20,6 +20,12 @@
   gap: 12px;
 }
 
+.coins-display {
+  font-weight: 700;
+  font-size: 14px;
+  color: #FFD700;
+}
+
 .settings-header .username {
   font-weight: 600;
   font-size: 16px;
@@ -157,6 +163,134 @@
 }
 
 /* Cosmetics Tab */
+.cosmetics-content {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.cosmetics-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.unlock-instructions-panel {
+  flex-shrink: 0;
+  width: 280px;
+  padding: 20px;
+  background: #3d2817;
+  border: 3px solid #000;
+  position: sticky;
+  top: 20px;
+}
+
+.unlock-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.unlock-panel-header h4 {
+  font-size: 14px;
+  margin: 0;
+  color: #ff6b35;
+}
+
+.btn-close-unlock {
+  background: transparent;
+  border: 2px solid #000;
+  color: #f4e4c1;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-close-unlock:hover {
+  background: #ff6b35;
+  color: #000;
+}
+
+.unlock-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.unlock-panel-emoji {
+  font-size: 28px;
+}
+
+.unlock-panel-name {
+  font-size: 14px;
+  color: #f4e4c1;
+  font-weight: 600;
+}
+
+.unlock-panel-instruction {
+  font-size: 12px;
+  color: rgba(244, 228, 193, 0.9);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.unlock-panel-purchase {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.unlock-panel-price {
+  font-size: 14px;
+  color: #FFD700;
+  font-weight: 600;
+}
+
+.btn-buy {
+  padding: 10px 16px;
+  background: #FFD700;
+  color: #000;
+  border: 3px solid #000;
+  box-shadow: 4px 4px 0 #000;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-buy:hover:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #000;
+}
+
+.btn-buy:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 767px) {
+  .cosmetics-content {
+    flex-direction: column;
+  }
+
+  .unlock-instructions-panel {
+    width: 100%;
+    position: static;
+    order: 2;
+  }
+}
+
 .cosmetics-preview {
   margin-bottom: 32px;
 }
@@ -204,9 +338,18 @@
 }
 
 .cosmetic-card.locked {
-  opacity: 0.5;
-  cursor: not-allowed;
+  opacity: 0.85;
+  cursor: pointer;
   filter: grayscale(0.5);
+}
+
+.cosmetic-card.locked:hover {
+  border-color: #ff6b35;
+}
+
+.cosmetic-card.selected-locked {
+  border-color: #FFD700;
+  box-shadow: 0 0 0 2px #FFD700, 4px 4px 0 #000;
 }
 
 .cosmetic-emoji {

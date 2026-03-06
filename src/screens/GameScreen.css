@@ -446,6 +446,14 @@
   font-size: 18px;
 }
 
+.coins-earned {
+  margin: -8px 0 24px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #FFD700;
+  text-shadow: 2px 2px 0 #000;
+}
+
 .game-over-buttons {
   display: flex;
   gap: 12px;

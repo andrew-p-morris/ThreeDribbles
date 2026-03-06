@@ -9,6 +9,8 @@ export type User = {
   createdAt: number
   selectedCharacter?: string
   equippedCosmetics?: EquippedCosmetics
+  unlockedCosmetics?: string[]
+  coins?: number
 }
 
 export type ModeStats = {

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode, useEffect, useRef } fro
 import { GameState, GameMode, Archetype, MoveHistory } from '../types/Game'
 import { initializeGame, processMove, validateMove } from '../game/GameEngine'
 import { getAIMove } from '../game/AI'
+import { checkUnlocks } from '../game/Unlocks'
 import { getPosition } from '../game/CourtPositions'
 import { CHARACTERS } from '../types/Character'
 import { useAuth } from './AuthContext'
@@ -13,6 +14,7 @@ type GameContextType = {
   moveHistory: MoveHistory[]
   showMoveComplete: number | null
   showBlockPopup: boolean // Show "-1 dribble" popup when defender guesses correctly
+  completeShotAnimation: () => void // Called by GameScreen when ball animation finishes
   startGame: (mode: GameMode, archetype: Archetype, difficulty?: 'easy' | 'medium' | 'hard', player2Archetype?: Archetype) => void
   selectPosition: (position: number) => void
   resetGame: () => void
@@ -30,7 +32,7 @@ export function useGame() {
 }
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  const { currentUser, updateUserStats } = useAuth()
+  const { currentUser, updateUserStats, updateUserUnlockedCosmetics, updateUserCoins } = useAuth()
   const [gameState, setGameState] = useState<GameState | null>(null)
   const gameStateRef = useRef<GameState | null>(null)
   
@@ -45,6 +47,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [turnNumber, setTurnNumber] = useState(0)
   const [showMoveComplete, setShowMoveComplete] = useState<number | null>(null) // Show popup for move number
   const [showBlockPopup, setShowBlockPopup] = useState(false) // Show "-1 dribble" popup
+  const pendingShotStateRef = useRef<GameState | null>(null)
+  const shotAnimationFallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function startGame(mode: GameMode, archetype: Archetype, difficulty?: 'easy' | 'medium' | 'hard', player2Archetype?: Archetype) {
     if (!currentUser) {
@@ -242,48 +246,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setLastShotResult({ ...shotResult, shotBy: currentPossession, shotPosition: offenseMove })
       setShowShotBanner(false) // Hide banner during animation
       
-      // Calculate animation duration based on shot distance
-      // offenseMove is the position the offense is shooting from
-      const offensePosition = offenseMove
-      const offensePos = getPosition(offensePosition)
-      const basketX = 35
-      const basketY = 72
-      const distanceToBasket = Math.sqrt(Math.pow(offensePos.x - basketX, 2) + Math.pow(offensePos.y - basketY, 2))
+      // Store state to apply when GameScreen calls completeShotAnimation (after ball animation ends)
+      pendingShotStateRef.current = newState
       
-      const isPaintShot = offensePosition === 11
-      const isTopOfKeyShot = offensePosition === 3
-      
-      let baseDuration = 3000
-      if (isTopOfKeyShot) {
-        baseDuration = 5000
-      } else if (isPaintShot) {
-        baseDuration = 1500
-      } else if (distanceToBasket > 28) {
-        baseDuration = 4500
-      } else if (distanceToBasket > 20) {
-        baseDuration = 3500
-      }
-      
-      const animationDuration = shotResult.made ? baseDuration : baseDuration + 500
-      setTimeout(() => {
-        // Animation complete - NOW show the banner and update scores/game state
-        console.log('Animation complete - showing banner and updating scores/game state')
-        setShowShotBanner(true) // Show banner AFTER animation completes
-        
-        // Update game state (but keep lastShotResult so banner can display it)
-        updateGameState(newState)
-        
-        // If game ended, save stats
-        if (newState.status === 'finished' && currentUser) {
-          saveGameStats(newState)
+      // Fallback: if completeShotAnimation is never called (e.g. user navigates away), apply after 8s
+      if (shotAnimationFallbackTimeoutRef.current) clearTimeout(shotAnimationFallbackTimeoutRef.current)
+      shotAnimationFallbackTimeoutRef.current = setTimeout(() => {
+        if (pendingShotStateRef.current != null) {
+          console.log('Shot animation fallback - applying pending state')
+          const state = pendingShotStateRef.current
+          pendingShotStateRef.current = null
+          shotAnimationFallbackTimeoutRef.current = null
+          updateGameState(state)
+          setShowShotBanner(true)
+          if (state.status === 'finished' && currentUser) saveGameStats(state)
+          setTimeout(() => {
+            setLastShotResult(null)
+            setShowShotBanner(false)
+          }, 2500)
         }
-        
-        // Clear shot result and banner after showing it
-        setTimeout(() => {
-          setLastShotResult(null)
-          setShowShotBanner(false)
-        }, 2500)
-      }, animationDuration)
+      }, 8000)
       return
     }
     
@@ -296,6 +278,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
     // Switch to next turn (offense for next move) - possession stays the same until a shot
     const nextState = newState ? { ...newState, currentTurn: 'offense' as 'offense', offenseSelection: null } : null
     updateGameState(nextState)
+  }
+
+  function completeShotAnimation() {
+    if (pendingShotStateRef.current == null) return
+    if (shotAnimationFallbackTimeoutRef.current) {
+      clearTimeout(shotAnimationFallbackTimeoutRef.current)
+      shotAnimationFallbackTimeoutRef.current = null
+    }
+    const state = pendingShotStateRef.current
+    pendingShotStateRef.current = null
+    updateGameState(state)
+    setShowShotBanner(true)
+    if (state.status === 'finished' && currentUser) saveGameStats(state)
+    setTimeout(() => {
+      setLastShotResult(null)
+      setShowShotBanner(false)
+    }, 2500)
   }
 
   // Auto-trigger AI moves when it's AI's turn
@@ -397,12 +396,28 @@ export function GameProvider({ children }: { children: ReactNode }) {
       playerStats.threesMade,
       playerStats.threesAttempted
     )
+
+    const currentUnlocked = currentUser.unlockedCosmetics || []
+    const newlyUnlocked = checkUnlocks(endedGameState, currentUnlocked)
+    if (newlyUnlocked.length > 0) {
+      updateUserUnlockedCosmetics(newlyUnlocked)
+    }
+
+    if (won && endedGameState.mode === 'ai' && endedGameState.aiDifficulty) {
+      const coinsByDifficulty = { easy: 1, medium: 3, hard: 5 }
+      updateUserCoins(coinsByDifficulty[endedGameState.aiDifficulty])
+    }
   }
 
   function resetGame() {
     updateGameState(null)
     setLastShotResult(null)
     setShowShotBanner(false)
+    pendingShotStateRef.current = null
+    if (shotAnimationFallbackTimeoutRef.current) {
+      clearTimeout(shotAnimationFallbackTimeoutRef.current)
+      shotAnimationFallbackTimeoutRef.current = null
+    }
     setMoveHistory([])
     setTurnNumber(0)
     setShowMoveComplete(null)
@@ -474,6 +489,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     moveHistory,
     showMoveComplete,
     showBlockPopup,
+    completeShotAnimation,
     startGame,
     selectPosition,
     resetGame,
