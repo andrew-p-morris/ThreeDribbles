@@ -11,7 +11,7 @@ import {
   EmailAuthProvider,
   User as FirebaseUser
 } from 'firebase/auth'
-import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore'
+import { doc, setDoc, getDoc, getDocFromCache, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { auth, db } from '../firebase/firebase'
 import { deleteUserFirestoreData } from '../firebase/online'
 import { User, ModeStats } from '../types/User'
@@ -583,21 +583,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const database = db!
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const userRef = doc(database, 'users', firebaseUser.uid)
-        const userDoc = await getDoc(userRef)
-        if (userDoc.exists()) {
-          const data = userDoc.data() as User
-          setCurrentUser({ ...data, coins: data.coins ?? 5000, displayName: capitalizeDisplayName(data.displayName || '') })
+      try {
+        if (firebaseUser) {
+          const userRef = doc(database, 'users', firebaseUser.uid)
+          let userDoc
+          try {
+            userDoc = await getDoc(userRef)
+          } catch (getErr: any) {
+            const isOffline = getErr?.code === 'unavailable' || getErr?.message?.includes('offline')
+            if (isOffline) {
+              try {
+                userDoc = await getDocFromCache(userRef)
+              } catch {
+                setCurrentUser(null)
+                return
+              }
+            } else {
+              throw getErr
+            }
+          }
+          if (userDoc.exists()) {
+            const data = userDoc.data() as User
+            setCurrentUser({ ...data, coins: data.coins ?? 5000, displayName: capitalizeDisplayName(data.displayName || '') })
+          } else {
+            const isGuest = firebaseUser.isAnonymous
+            const userData = await createUserDocument(firebaseUser, isGuest)
+            setCurrentUser({ ...userData, coins: userData.coins ?? 5000, displayName: capitalizeDisplayName(userData.displayName) })
+          }
         } else {
-          const isGuest = firebaseUser.isAnonymous
-          const userData = await createUserDocument(firebaseUser, isGuest)
-          setCurrentUser({ ...userData, coins: userData.coins ?? 5000, displayName: capitalizeDisplayName(userData.displayName) })
+          setCurrentUser(null)
         }
-      } else {
+      } catch (err) {
+        console.error('Auth state change error:', err)
         setCurrentUser(null)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     })
 
     return unsubscribe
