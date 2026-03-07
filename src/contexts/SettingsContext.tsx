@@ -5,6 +5,7 @@ type SettingsContextType = {
   courtTheme: CourtThemeId
   setCourtTheme: (theme: CourtThemeId) => void
   unlockedThemes: CourtThemeId[]
+  unlockCourtTheme: (themeId: CourtThemeId) => void
   unlockAllThemes: () => void
   soundMuted: boolean
   setSoundMuted: (muted: boolean) => void
@@ -30,7 +31,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   
   const [unlockedThemes, setUnlockedThemes] = useState<CourtThemeId[]>(() => {
     const stored = localStorage.getItem('unlockedThemes')
-    return stored ? JSON.parse(stored) : ['stadium', 'beach', 'blacktop', 'highschool']
+    if (!stored) return ['highschool', 'blacktop']
+    try {
+      const parsed = JSON.parse(stored) as CourtThemeId[]
+      if (!Array.isArray(parsed)) return ['highschool', 'blacktop']
+      const sorted = [...parsed].sort().join(',')
+      const legacyFour = ['stadium', 'beach', 'blacktop', 'highschool'].sort().join(',')
+      const legacySix = ['highschool', 'stadium', 'beach', 'blacktop', 'snow_court', 'jungle_court'].sort().join(',')
+      if (sorted === legacyFour || sorted === legacySix) return ['highschool', 'blacktop']
+      return parsed
+    } catch {
+      return ['highschool', 'blacktop']
+    }
   })
 
   const [soundMuted, setSoundMutedState] = useState<boolean>(() => {
@@ -73,10 +85,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setUnlockedThemes(allThemes)
   }
 
+  function unlockCourtTheme(themeId: CourtThemeId) {
+    setUnlockedThemes(prev => (prev.includes(themeId) ? prev : [...prev, themeId]))
+  }
+
   const value = {
     courtTheme,
     setCourtTheme,
     unlockedThemes,
+    unlockCourtTheme,
     unlockAllThemes,
     soundMuted,
     setSoundMuted,

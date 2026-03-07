@@ -3,7 +3,43 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useGame } from '../contexts/GameContext'
 import { Archetype } from '../types/Game'
+import { CHARACTERS } from '../types/Character'
+import { PixelCharacter } from '../components/PixelCharacter'
 import './HomeScreen.css'
+
+// Star ratings (out of 5) for archetype cards: 3PT, Mid, Paint
+const ARCHETYPE_STARS: Record<Archetype, { three: number; mid: number; paint: number }> = {
+  midrange: { three: 3, mid: 4, paint: 3 },
+  shooter: { three: 4, mid: 3, paint: 1 },
+  defender: { three: 1, mid: 3, paint: 4 }
+}
+
+function StarRating({ value, highlight = false }: { value: number; highlight?: boolean }) {
+  const filled = '★'.repeat(value)
+  const empty = '☆'.repeat(5 - value)
+  return (
+    <span className={highlight ? 'archetype-strength star-rating' : 'star-rating'}>
+      <span className="star-filled">{filled}</span>
+      <span className="star-empty">{empty}</span>
+    </span>
+  )
+}
+
+function ArchetypeStarsLine({ archetype }: { archetype: Archetype }) {
+  const s = ARCHETYPE_STARS[archetype]
+  const max = Math.max(s.three, s.mid, s.paint)
+  const seg = (label: string, value: number) => (
+    <>
+      {label}{' '}
+      <StarRating value={value} highlight={value === max} />
+    </>
+  )
+  return (
+    <p>
+      {seg('3PT', s.three)} {seg('Mid', s.mid)} {seg('Paint', s.paint)}
+    </p>
+  )
+}
 
 function HomeScreen() {
   const { currentUser, signOut } = useAuth()
@@ -25,25 +61,11 @@ function HomeScreen() {
   const [showArchetypeSelect, setShowArchetypeSelect] = useState(false)
   const [showPlayer2ArchetypeSelect, setShowPlayer2ArchetypeSelect] = useState(false)
   const [showAIArchetypeSelect, setShowAIArchetypeSelect] = useState(false)
-  const [showHowToPlay, setShowHowToPlay] = useState(false)
   const [selectedMode, setSelectedMode] = useState<'local' | 'ai' | 'online' | null>(null)
   const [selectedDifficulty, setSelectedDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
   const [player1Archetype, setPlayer1Archetype] = useState<Archetype | null>(null)
   const [aiArchetype, setAiArchetype] = useState<Archetype | null>(null)
   const [flippedCard, setFlippedCard] = useState<string | null>(null) // Track which card is flipped
-
-  // Check if user has seen "how to play" before
-  useEffect(() => {
-    if (!currentUser) return
-    
-    const hasSeenTutorial = localStorage.getItem(`hasSeenTutorial_${currentUser.uid}`)
-    if (!hasSeenTutorial) {
-      // First time user - show how to play
-      setShowHowToPlay(true)
-      setShowModeSelect(false)
-      localStorage.setItem(`hasSeenTutorial_${currentUser.uid}`, 'true')
-    }
-  }, [currentUser])
 
   function handlePlayClick() {
     setShowModeSelect(true)
@@ -148,111 +170,38 @@ function HomeScreen() {
     <div className="screen home-screen">
       <div className="home-container">
         <header className="home-header">
-          <h1 className="game-title">🏀 THREE DRIBBLES</h1>
+          <div className="home-title-row">
+            <div className="home-header-character">
+              <PixelCharacter
+                character={CHARACTERS.find(c => c.id === (currentUser?.selectedCharacter || 'rocket')) ?? CHARACTERS[0]}
+                size={72}
+                equippedCosmetics={currentUser?.equippedCosmetics ?? {}}
+                hasBasketball={true}
+              />
+            </div>
+            <h1 className="game-title">🏀 THREE DRIBBLES</h1>
+          </div>
           <div className="header-controls">
-            {(showModeSelect || showArchetypeSelect || showPlayer2ArchetypeSelect || showAIArchetypeSelect) && (
-              <button 
-                onClick={() => {
-                  if (showModeSelect) {
-                    setShowModeSelect(false)
-                  } else if (showArchetypeSelect) {
-                    setShowArchetypeSelect(false)
-                    setShowModeSelect(true)
-                  } else if (showPlayer2ArchetypeSelect) {
-                    setShowPlayer2ArchetypeSelect(false)
-                    setShowArchetypeSelect(true)
-                  } else if (showAIArchetypeSelect) {
-                    setShowAIArchetypeSelect(false)
-                    setShowModeSelect(true)
-                  }
-                }} 
-                className="btn-icon back-arrow-header"
-                title="Back"
-              >
-                ←
-              </button>
-            )}
             <div className="user-info">
               <span className="username">{currentUser?.displayName}</span>
-              <button onClick={() => navigate('/settings')} className="btn-icon">
-                ⚙️
-              </button>
               {!currentUser?.isGuest && (
-                <button onClick={handleProfileClick} className="btn-icon">
-                  👤
+                <button onClick={handleProfileClick} className="btn-icon btn-header-text">
+                  Profile
                 </button>
               )}
-              <button 
-                onClick={() => setShowHowToPlay(true)} 
-                className="btn-icon"
-                title="How to Play"
-              >
-                ℹ️
-              </button>
-              <button onClick={handleSignOut} className="btn-icon">
-                🚪
-              </button>
+              <div className="home-settings-stack">
+                <button onClick={handleSignOut} className="btn-icon btn-header-text">
+                  Home
+                </button>
+                <button onClick={() => navigate('/settings')} className="btn-icon btn-header-text">
+                  Settings
+                </button>
+              </div>
             </div>
           </div>
         </header>
 
-        {showHowToPlay && (
-          <div className="how-to-play-overlay">
-            <div className="how-to-play card">
-              <div className="how-to-play-header">
-                <h2>How to Play</h2>
-                <button 
-                  onClick={() => setShowHowToPlay(false)} 
-                  className="btn-close"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="game-info">
-                <h4>Basics</h4>
-                <ul>
-                  <li>Choose archetype & character</li>
-                  <li>Offense: Dribble to adjacent positions or Shoot Now</li>
-                  <li>Defense: Guard adjacent positions or Contest Shot</li>
-                  <li>Same spot = Defense wins! Offense loses a dribble</li>
-                </ul>
-                
-                <h4>Scoring</h4>
-                <ul>
-                  <li>3PT = 2 points, 2PT = 1 point</li>
-                  <li>Shot % based on distance & archetype</li>
-                  <li>Make it = Keep ball, Miss = Opponent's ball</li>
-                </ul>
-                
-                <h4>Winning</h4>
-                <ul>
-                  <li>First to 11+ points wins (must win by 2)</li>
-                  <li>If score reaches 30, sudden death: next made shot wins!</li>
-                </ul>
-                
-                <h4>Archetypes:</h4>
-                <ul>
-                  <li>🎯 **Mid Range**: Balanced, strong in mid-range.</li>
-                  <li>🌟 **Shooter**: Best from 3-point range.</li>
-                  <li>🛡️ **Defender**: Strong in the paint, reduces opponent's shot percentage.</li>
-                </ul>
-              </div>
-              <button 
-                onClick={() => {
-                  setShowHowToPlay(false)
-                  if (!showModeSelect) {
-                    setShowModeSelect(true)
-                  }
-                }} 
-                className="btn btn-primary"
-              >
-                Got it!
-              </button>
-            </div>
-          </div>
-        )}
-
-        {!showModeSelect && !showArchetypeSelect && !showPlayer2ArchetypeSelect && !showAIArchetypeSelect && !showHowToPlay && (
+        {!showModeSelect && !showArchetypeSelect && !showPlayer2ArchetypeSelect && !showAIArchetypeSelect && (
           <div className="main-menu">
             <button onClick={handlePlayClick} className="btn btn-primary btn-large">
               Play Game
@@ -331,15 +280,15 @@ function HomeScreen() {
                   <div className="archetype-card-front card archetype-card">
                     <div className="archetype-icon">🎯</div>
                     <h3>Mid Range</h3>
-                    <p>Paint <span className="archetype-strength">Mid</span> 3PT 50% <span className="archetype-strength">75%</span> 50%</p>
+                    <ArchetypeStarsLine archetype="midrange" />
                   </div>
                   <div className="archetype-card-back card archetype-card">
                     <h3>Mid Range</h3>
                     <div className="archetype-description">
                       <p><strong>Balanced playstyle</strong> with strength in mid-range shots.</p>
                       <ul>
-                        <li>🎯 <strong>75%</strong> from mid-range</li>
-                        <li>⚖️ <strong>50%</strong> from 3-point and paint</li>
+                        <li>🎯 <strong><StarRating value={4} /></strong> from mid-range</li>
+                        <li>⚖️ <strong><StarRating value={3} /></strong> from 3-point and paint</li>
                         <li>💪 Versatile and consistent</li>
                       </ul>
                     </div>
@@ -376,16 +325,16 @@ function HomeScreen() {
                   <div className="archetype-card-front card archetype-card">
                     <div className="archetype-icon">🌟</div>
                     <h3>Shooter</h3>
-                    <p>Paint Mid <span className="archetype-strength">3PT</span> 25% 50% <span className="archetype-strength">75%</span></p>
+                    <ArchetypeStarsLine archetype="shooter" />
                   </div>
                   <div className="archetype-card-back card archetype-card">
                     <h3>Shooter</h3>
                     <div className="archetype-description">
                       <p><strong>Elite from long range</strong>, deadly from 3-point line.</p>
                       <ul>
-                        <li>🌟 <strong>75%</strong> from 3-point range</li>
-                        <li>📊 <strong>50%</strong> from mid-range</li>
-                        <li>⚠️ <strong>25%</strong> from paint (weak inside)</li>
+                        <li>🌟 <strong><StarRating value={4} /></strong> from 3-point range</li>
+                        <li>📊 <strong><StarRating value={3} /></strong> from mid-range</li>
+                        <li>⚠️ <strong><StarRating value={1} /></strong> from paint (weak inside)</li>
                         <li>🏀 3-pointers worth <strong>2 points</strong></li>
                       </ul>
                     </div>
@@ -422,16 +371,16 @@ function HomeScreen() {
                   <div className="archetype-card-front card archetype-card">
                     <div className="archetype-icon">🛡️</div>
                     <h3>Defender</h3>
-                    <p><span className="archetype-strength">Paint</span> Mid 3PT <span className="archetype-strength">75%</span> 50% 25%</p>
+                    <ArchetypeStarsLine archetype="defender" />
                   </div>
                   <div className="archetype-card-back card archetype-card">
                     <h3>Defender</h3>
                     <div className="archetype-description">
                       <p><strong>Dominant in the paint</strong> and reduces opponent's shots.</p>
                       <ul>
-                        <li>🛡️ <strong>75%</strong> from paint</li>
-                        <li>📊 <strong>50%</strong> from mid-range</li>
-                        <li>⚠️ <strong>25%</strong> from 3-point (weak outside)</li>
+                        <li>🛡️ <strong><StarRating value={4} /></strong> from paint</li>
+                        <li>📊 <strong><StarRating value={3} /></strong> from mid-range</li>
+                        <li>⚠️ <strong><StarRating value={1} /></strong> from 3-point (weak outside)</li>
                         <li>💪 <strong>-5%</strong> to opponent's shot percentage when defending</li>
                       </ul>
                     </div>
@@ -475,15 +424,15 @@ function HomeScreen() {
                   <div className="archetype-card-front card archetype-card">
                     <div className="archetype-icon">🎯</div>
                     <h3>Mid Range</h3>
-                    <p>Paint <span className="archetype-strength">Mid</span> 3PT 50% <span className="archetype-strength">75%</span> 50%</p>
+                    <ArchetypeStarsLine archetype="midrange" />
                   </div>
                   <div className="archetype-card-back card archetype-card">
                     <h3>Mid Range</h3>
                     <div className="archetype-description">
                       <p><strong>Balanced playstyle</strong> with strength in mid-range shots.</p>
                       <ul>
-                        <li>🎯 <strong>75%</strong> from mid-range</li>
-                        <li>⚖️ <strong>50%</strong> from 3-point and paint</li>
+                        <li>🎯 <strong><StarRating value={4} /></strong> from mid-range</li>
+                        <li>⚖️ <strong><StarRating value={3} /></strong> from 3-point and paint</li>
                         <li>💪 Versatile and consistent</li>
                       </ul>
                     </div>
@@ -520,16 +469,16 @@ function HomeScreen() {
                   <div className="archetype-card-front card archetype-card">
                     <div className="archetype-icon">🌟</div>
                     <h3>Shooter</h3>
-                    <p>Paint Mid <span className="archetype-strength">3PT</span> 25% 50% <span className="archetype-strength">75%</span></p>
+                    <ArchetypeStarsLine archetype="shooter" />
                   </div>
                   <div className="archetype-card-back card archetype-card">
                     <h3>Shooter</h3>
                     <div className="archetype-description">
                       <p><strong>Elite from long range</strong>, deadly from 3-point line.</p>
                       <ul>
-                        <li>🌟 <strong>75%</strong> from 3-point range</li>
-                        <li>📊 <strong>50%</strong> from mid-range</li>
-                        <li>⚠️ <strong>25%</strong> from paint (weak inside)</li>
+                        <li>🌟 <strong><StarRating value={4} /></strong> from 3-point range</li>
+                        <li>📊 <strong><StarRating value={3} /></strong> from mid-range</li>
+                        <li>⚠️ <strong><StarRating value={1} /></strong> from paint (weak inside)</li>
                         <li>🏀 3-pointers worth <strong>2 points</strong></li>
                       </ul>
                     </div>
@@ -566,16 +515,16 @@ function HomeScreen() {
                   <div className="archetype-card-front card archetype-card">
                     <div className="archetype-icon">🛡️</div>
                     <h3>Defender</h3>
-                    <p><span className="archetype-strength">Paint</span> Mid 3PT <span className="archetype-strength">75%</span> 50% 25%</p>
+                    <ArchetypeStarsLine archetype="defender" />
                   </div>
                   <div className="archetype-card-back card archetype-card">
                     <h3>Defender</h3>
                     <div className="archetype-description">
                       <p><strong>Dominant in the paint</strong> and reduces opponent's shots.</p>
                       <ul>
-                        <li>🛡️ <strong>75%</strong> from paint</li>
-                        <li>📊 <strong>50%</strong> from mid-range</li>
-                        <li>⚠️ <strong>25%</strong> from 3-point (weak outside)</li>
+                        <li>🛡️ <strong><StarRating value={4} /></strong> from paint</li>
+                        <li>📊 <strong><StarRating value={3} /></strong> from mid-range</li>
+                        <li>⚠️ <strong><StarRating value={1} /></strong> from 3-point (weak outside)</li>
                         <li>💪 <strong>-5%</strong> to opponent's shot percentage when defending</li>
                       </ul>
                     </div>
@@ -619,15 +568,15 @@ function HomeScreen() {
                   <div className="archetype-card-front card archetype-card">
                     <div className="archetype-icon">🎯</div>
                     <h3>Mid Range</h3>
-                    <p>Paint <span className="archetype-strength">Mid</span> 3PT 50% <span className="archetype-strength">75%</span> 50%</p>
+                    <ArchetypeStarsLine archetype="midrange" />
                   </div>
                   <div className="archetype-card-back card archetype-card">
                     <h3>Mid Range</h3>
                     <div className="archetype-description">
                       <p><strong>Balanced playstyle</strong> with strength in mid-range shots.</p>
                       <ul>
-                        <li>🎯 <strong>75%</strong> from mid-range</li>
-                        <li>⚖️ <strong>50%</strong> from 3-point and paint</li>
+                        <li>🎯 <strong><StarRating value={4} /></strong> from mid-range</li>
+                        <li>⚖️ <strong><StarRating value={3} /></strong> from 3-point and paint</li>
                         <li>💪 Versatile and consistent</li>
                       </ul>
                     </div>
@@ -664,16 +613,16 @@ function HomeScreen() {
                   <div className="archetype-card-front card archetype-card">
                     <div className="archetype-icon">🌟</div>
                     <h3>Shooter</h3>
-                    <p>Paint Mid <span className="archetype-strength">3PT</span> 25% 50% <span className="archetype-strength">75%</span></p>
+                    <ArchetypeStarsLine archetype="shooter" />
                   </div>
                   <div className="archetype-card-back card archetype-card">
                     <h3>Shooter</h3>
                     <div className="archetype-description">
                       <p><strong>Elite from long range</strong>, deadly from 3-point line.</p>
                       <ul>
-                        <li>🌟 <strong>75%</strong> from 3-point range</li>
-                        <li>📊 <strong>50%</strong> from mid-range</li>
-                        <li>⚠️ <strong>25%</strong> from paint (weak inside)</li>
+                        <li>🌟 <strong><StarRating value={4} /></strong> from 3-point range</li>
+                        <li>📊 <strong><StarRating value={3} /></strong> from mid-range</li>
+                        <li>⚠️ <strong><StarRating value={1} /></strong> from paint (weak inside)</li>
                         <li>🏀 3-pointers worth <strong>2 points</strong></li>
                       </ul>
                     </div>
@@ -710,16 +659,16 @@ function HomeScreen() {
                   <div className="archetype-card-front card archetype-card">
                     <div className="archetype-icon">🛡️</div>
                     <h3>Defender</h3>
-                    <p><span className="archetype-strength">Paint</span> Mid 3PT <span className="archetype-strength">75%</span> 50% 25%</p>
+                    <ArchetypeStarsLine archetype="defender" />
                   </div>
                   <div className="archetype-card-back card archetype-card">
                     <h3>Defender</h3>
                     <div className="archetype-description">
                       <p><strong>Dominant in the paint</strong> and reduces opponent's shots.</p>
                       <ul>
-                        <li>🛡️ <strong>75%</strong> from paint</li>
-                        <li>📊 <strong>50%</strong> from mid-range</li>
-                        <li>⚠️ <strong>25%</strong> from 3-point (weak outside)</li>
+                        <li>🛡️ <strong><StarRating value={4} /></strong> from paint</li>
+                        <li>📊 <strong><StarRating value={3} /></strong> from mid-range</li>
+                        <li>⚠️ <strong><StarRating value={1} /></strong> from 3-point (weak outside)</li>
                         <li>💪 <strong>-5%</strong> to opponent's shot percentage when defending</li>
                       </ul>
                     </div>

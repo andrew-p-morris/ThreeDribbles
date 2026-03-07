@@ -49,8 +49,7 @@ export const COURT_THEME_DATA: Record<CourtThemeId, CourtTheme> = {
     courtColor: '#E8F4F8',
     lineColor: '#003366',
     backgroundColor: '#B0D4E3',
-    grainColor: '#D0E8F0',
-    locked: true
+    grainColor: '#D0E8F0'
   },
   jungle_court: {
     name: 'Jungle Court',
@@ -58,7 +57,6 @@ export const COURT_THEME_DATA: Record<CourtThemeId, CourtTheme> = {
     courtColor: '#228B22',
     lineColor: '#8B4513',
     backgroundColor: '#0a4a0a',
-    grainColor: '#1a6b1a',
-    locked: true
+    grainColor: '#1a6b1a'
   }
 }

@@ -1,14 +1,14 @@
 // Firebase configuration
-// TODO: Replace with your Firebase project credentials
 export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID",
-  databaseURL: "YOUR_DATABASE_URL"
-}
+  apiKey: "AIzaSyC4btnTIWdDvfk9C-XBarZKEv15VYrgaZ4",
+  authDomain: "threedribbles-7416d.firebaseapp.com",
+  projectId: "threedribbles-7416d",
+  storageBucket: "threedribbles-7416d.firebasestorage.app",
+  messagingSenderId: "329219445112",
+  appId: "1:329219445112:web:770e80e841314d1460788d",
+  measurementId: "G-KZM3SVDZ83",
+  databaseURL: ""
+};
 
 
 

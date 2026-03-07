@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Position, Archetype } from '../types/Game'
 import { CHARACTERS } from '../types/Character'
 import { CourtPixelCharacter } from './PixelCharacter'
@@ -66,11 +67,23 @@ function Court({
   const ballCosmetic = offenseCosmetics?.balls ? getCosmeticById(offenseCosmetics.balls) : null
   const ballColor = ballCosmetic?.colors.primary || '#ff6b35'
   
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  
   return (
     <div className="court-container">
-      <svg viewBox="0 0 70 80" className="court-svg" style={{ background: theme.backgroundColor }}>
-        {/* Theme-specific decorations/fans */}
-        {courtTheme === 'beach' && (
+      <svg
+        viewBox={isMobile ? '8 5 54 70' : '0 0 70 80'}
+        className="court-svg"
+        style={{ background: isMobile ? '#2d1810' : theme.backgroundColor }}
+      >
+        {/* Theme-specific decorations/fans - hidden on mobile */}
+        {courtTheme === 'beach' && !isMobile && (
           <>
             {/* Palm trees */}
             <rect x="2" y="15" width="1.2" height="6" fill="#8B4513" stroke="#000" strokeWidth="0.15" />
@@ -93,7 +106,7 @@ function Court({
           </>
         )}
         
-        {courtTheme === 'stadium' && (
+        {courtTheme === 'stadium' && !isMobile && (
           <>
             {/* Stadium lights */}
             <rect x="2" y="10" width="1" height="4" fill="#555" stroke="#000" strokeWidth="0.2" />
@@ -115,7 +128,7 @@ function Court({
           </>
         )}
         
-        {courtTheme === 'blacktop' && (
+        {courtTheme === 'blacktop' && !isMobile && (
           <>
             {/* Chain link fence */}
             <line x1="1" y1="10" x2="6" y2="15" stroke="#888" strokeWidth="0.2" opacity="0.5" />
@@ -164,7 +177,7 @@ function Court({
           </>
         )}
         
-        {courtTheme === 'snow_court' && (
+        {courtTheme === 'snow_court' && !isMobile && (
           <>
             {/* Snowman */}
             <circle cx="3" cy="25" r="1.5" fill="#ffffff" stroke="#000" strokeWidth="0.2" />
@@ -188,7 +201,7 @@ function Court({
           </>
         )}
         
-        {courtTheme === 'jungle_court' && (
+        {courtTheme === 'jungle_court' && !isMobile && (
           <>
             {/* Jungle trees */}
             <rect x="2" y="18" width="1.5" height="8" fill="#8B4513" stroke="#000" strokeWidth="0.15" />
@@ -261,6 +274,13 @@ function Court({
           const isDefense = position.id === defensePosition
           const isHighlighted = highlightedPositions.includes(position.id)
           const isClickable = isHighlighted
+          const isCurrentSpotClickable = isHighlighted && (isOffense || isDefense)
+          
+          const handlePointerDown = (e: React.PointerEvent) => {
+            if (!isClickable && !isCurrentSpotClickable) return
+            e.preventDefault()
+            onPositionClick(position.id)
+          }
           
           return (
             <g key={position.id}>
@@ -282,7 +302,7 @@ function Court({
                   }
                   strokeWidth={0.4}
                   className={isClickable ? 'position-clickable' : ''}
-                  onClick={() => isClickable && onPositionClick(position.id)}
+                  onPointerDown={handlePointerDown}
                   style={{ cursor: isClickable ? 'pointer' : 'default' }}
                 />
               )}
@@ -345,6 +365,18 @@ function Court({
                       equippedCosmetics={isPlayer1Offense ? player2Cosmetics : player1Cosmetics}
                     />
                   ) : null}
+              {/* Invisible hit target for "tap current" (shoot or contest) - render on top so it receives the tap */}
+              {isCurrentSpotClickable && (
+                <circle
+                  cx={position.x}
+                  cy={position.y}
+                  r={4}
+                  fill="transparent"
+                  stroke="none"
+                  style={{ cursor: 'pointer' }}
+                  onPointerDown={handlePointerDown}
+                />
+              )}
             </g>
           )
         })}

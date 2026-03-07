@@ -85,6 +85,12 @@ function GameScreen() {
     // Prevent clicks during shot animation
     if (shotAnimation?.show) return
     
+    // Offense: tap on current position = shoot
+    if (gameState.currentTurn === 'offense' && positionId === offensivePlayer.currentPosition) {
+      selectPosition(-1)
+      return
+    }
+    
     // Check if this will be a block after defense picks
     if (gameState.currentTurn === 'defense' && gameState.offenseSelection === positionId) {
       setShowBlockIndicator(true)
@@ -345,8 +351,8 @@ function GameScreen() {
               onPositionClick={handlePositionClick}
               highlightedPositions={
                 gameState.currentTurn === 'offense'
-                  ? getPosition(offensivePlayer.currentPosition).adjacentPositions
-                  : getPosition(defensivePlayer.currentPosition).adjacentPositions
+                  ? [...getPosition(offensivePlayer.currentPosition).adjacentPositions, offensivePlayer.currentPosition]
+                  : [...getPosition(defensivePlayer.currentPosition).adjacentPositions, defensivePlayer.currentPosition]
               }
               shotAnimation={shotAnimation}
               ballPosition={ballPosition}
@@ -367,6 +373,35 @@ function GameScreen() {
           <div className="side-panel">
             <div className="game-status">
               <div className="status-message">{message}</div>
+            </div>
+
+            <div className="mobile-stats">
+              <div className="mobile-stat-col">
+                <span className="mobile-stat-label">P1</span>
+                <span className="mobile-stat-row">
+                  FG: {gameState.player1.shotsAttempted > 0 
+                    ? `${Math.round((gameState.player1.shotsMade / gameState.player1.shotsAttempted) * 100)}%`
+                    : '0%'}
+                </span>
+                <span className="mobile-stat-row">
+                  3PT: {gameState.player1.threesAttempted > 0
+                    ? `${Math.round((gameState.player1.threesMade / gameState.player1.threesAttempted) * 100)}%`
+                    : '0%'}
+                </span>
+              </div>
+              <div className="mobile-stat-col">
+                <span className="mobile-stat-label">P2</span>
+                <span className="mobile-stat-row">
+                  FG: {gameState.player2.shotsAttempted > 0 
+                    ? `${Math.round((gameState.player2.shotsMade / gameState.player2.shotsAttempted) * 100)}%`
+                    : '0%'}
+                </span>
+                <span className="mobile-stat-row">
+                  3PT: {gameState.player2.threesAttempted > 0
+                    ? `${Math.round((gameState.player2.threesMade / gameState.player2.threesAttempted) * 100)}%`
+                    : '0%'}
+                </span>
+              </div>
             </div>
 
             {/* Show controls for local mode always, for AI only on player's turn */}

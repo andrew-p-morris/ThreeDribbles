@@ -5,9 +5,13 @@ import {
   signInAnonymously,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  sendPasswordResetEmail,
+  deleteUser,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   User as FirebaseUser
 } from 'firebase/auth'
-import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore'
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { auth, db } from '../firebase/firebase'
 import { User, ModeStats } from '../types/User'
 import { EquippedCosmetics } from '../types/Cosmetics'
@@ -15,13 +19,35 @@ import { EquippedCosmetics } from '../types/Cosmetics'
 // Check if Firebase is available
 const isFirebaseAvailable = auth !== null && db !== null
 
+const USERNAME_MAX_LENGTH = 12
+const USERNAME_BAD_WORDS = ['fuck', 'shit', 'damn', 'ass', 'bitch', 'cunt', 'nigger', 'nigga', 'retard', 'fag', 'gay', 'homo', 'pussy', 'dick', 'cock', 'penis', 'vagina', 'sex', 'porn', 'xxx']
+
+/** Returns an error message if invalid, or null if valid. Expects trimmed input. */
+function validateUsername(username: string): string | null {
+  if (username.length === 0 || username.length > USERNAME_MAX_LENGTH) {
+    return 'Username must be 1–12 characters.'
+  }
+  if (!/^[a-zA-Z0-9]+$/.test(username)) {
+    return 'Username can only contain letters and numbers.'
+  }
+  const lower = username.toLowerCase()
+  for (const word of USERNAME_BAD_WORDS) {
+    if (lower.includes(word)) {
+      return 'Username contains inappropriate content.'
+    }
+  }
+  return null
+}
+
 type AuthContextType = {
   currentUser: User | null
   loading: boolean
   signUp: (email: string, password: string, username: string) => Promise<void>
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (usernameOrEmail: string, password: string) => Promise<void>
   signInAsGuest: () => Promise<void>
   signOut: () => Promise<void>
+  resetPassword: (emailOrUsername: string) => Promise<void>
+  deleteAccount: (password: string) => Promise<void>
   updateUserCharacter: (characterId: string) => void
   updateUserCosmetics: (cosmetics: EquippedCosmetics) => void
   updateUserStats: (modeKey: string, won: boolean, points: number, shotsMade: number, shotsAttempted: number, threesMade: number, threesAttempted: number) => void
@@ -70,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           totalPoints: 0,
           favoriteArchetype: null
         },
+        coins: 5000,
         createdAt: Date.now()
       }
       return userData
@@ -91,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           totalPoints: 0,
           favoriteArchetype: null
         },
+        coins: 5000,
         createdAt: Date.now()
       }
       
@@ -105,22 +133,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isFirebaseAvailable || !auth) {
       throw new Error('Firebase is not configured. Please set up Firebase to use authentication.')
     }
+    const trimmed = username.trim()
+    const validationError = validateUsername(trimmed)
+    if (validationError) {
+      throw new Error(validationError)
+    }
+    const isAvailable = await checkUsernameAvailable(trimmed)
+    if (!isAvailable) {
+      throw new Error('Username already taken')
+    }
     const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-    await createUserDocument(userCredential.user, false, username)
+    await createUserDocument(userCredential.user, false, trimmed)
   }
 
-  async function signIn(email: string, password: string) {
+  async function signIn(usernameOrEmail: string, password: string) {
     if (!isFirebaseAvailable || !auth) {
       throw new Error('Firebase is not configured. Please set up Firebase to use authentication.')
     }
-    await signInWithEmailAndPassword(auth, email, password)
+    let email = usernameOrEmail.trim()
+    if (!email.includes('@') && db) {
+      const usersRef = collection(db, 'users')
+      const q = query(usersRef, where('displayName', '==', usernameOrEmail.trim()))
+      const querySnapshot = await getDocs(q)
+      if (querySnapshot.empty) {
+        throw new Error('Invalid username or password')
+      }
+      const userData = querySnapshot.docs[0].data()
+      const foundEmail = userData.email
+      if (!foundEmail) {
+        throw new Error('Invalid username or password')
+      }
+      email = foundEmail
+    }
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
+    } catch (err: any) {
+      const code = err?.code
+      if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
+        throw new Error('Invalid username or password')
+      }
+      throw err
+    }
   }
 
   async function signInAsGuest() {
     console.log('Signing in as guest, Firebase available:', isFirebaseAvailable)
-    if (!isFirebaseAvailable || !auth) {
-      // Create a local guest user without Firebase
-      const localUser: User = {
+
+    function createLocalGuestUser(): User {
+      return {
         uid: `guest_${Date.now()}`,
         email: null,
         displayName: `Guest${Math.floor(Math.random() * 9999)}`,
@@ -132,16 +192,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           totalPoints: 0,
           favoriteArchetype: null
         },
+        coins: 5000,
         createdAt: Date.now()
       }
+    }
+
+    if (!isFirebaseAvailable || !auth) {
+      const localUser = createLocalGuestUser()
       console.log('Created local guest user:', localUser)
       setCurrentUser(localUser)
-      // Store in localStorage so it persists
       localStorage.setItem('guestUser', JSON.stringify(localUser))
       return
     }
-    const userCredential = await signInAnonymously(auth)
-    await createUserDocument(userCredential.user, true)
+
+    try {
+      const userCredential = await signInAnonymously(auth)
+      await createUserDocument(userCredential.user, true)
+    } catch (err) {
+      // Anonymous auth disabled or failed (e.g. auth/admin-restricted-operation): use local-only guest
+      console.warn('Anonymous sign-in failed, using local guest:', err)
+      const localUser = createLocalGuestUser()
+      setCurrentUser(localUser)
+      localStorage.setItem('guestUser', JSON.stringify(localUser))
+    }
   }
 
   async function signOut() {
@@ -151,6 +224,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     await firebaseSignOut(auth)
+  }
+
+  async function resetPassword(emailOrUsername: string) {
+    if (!isFirebaseAvailable || !auth) {
+      throw new Error('Firebase is not configured. Password reset is not available.')
+    }
+    let email = emailOrUsername.trim()
+    if (!email.includes('@') && db) {
+      const usersRef = collection(db, 'users')
+      const q = query(usersRef, where('displayName', '==', email))
+      const querySnapshot = await getDocs(q)
+      if (querySnapshot.empty) {
+        throw new Error('No account found with that username or email.')
+      }
+      const userData = querySnapshot.docs[0].data()
+      const foundEmail = userData.email
+      if (!foundEmail) {
+        throw new Error('No account found with that username or email.')
+      }
+      email = foundEmail
+    }
+    try {
+      await sendPasswordResetEmail(auth, email)
+    } catch (err: any) {
+      if (err?.code === 'auth/user-not-found') {
+        throw new Error('No account found with that username or email.')
+      }
+      throw err
+    }
+  }
+
+  async function deleteAccount(password: string) {
+    if (!currentUser) {
+      throw new Error('No user logged in.')
+    }
+    if (currentUser.isGuest) {
+      localStorage.removeItem('guestUser')
+      localStorage.removeItem('localUsernames')
+      setCurrentUser(null)
+      return
+    }
+    if (!isFirebaseAvailable || !auth || !db) {
+      throw new Error('Account deletion is not available.')
+    }
+    const firebaseUser = auth.currentUser
+    if (!firebaseUser) {
+      throw new Error('Not signed in. Please sign in again.')
+    }
+    const email = currentUser.email
+    if (!email || !password.trim()) {
+      throw new Error('Password is required to delete your account.')
+    }
+    try {
+      await reauthenticateWithCredential(
+        firebaseUser,
+        EmailAuthProvider.credential(email, password.trim())
+      )
+    } catch (err: any) {
+      const code = err?.code
+      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
+        throw new Error('Wrong password.')
+      }
+      if (code === 'auth/requires-recent-login') {
+        throw new Error('Please sign out and sign in again, then try deleting your account.')
+      }
+      throw err
+    }
+    const userRef = doc(db, 'users', currentUser.uid)
+    await deleteDoc(userRef)
+    await deleteUser(firebaseUser)
+    setCurrentUser(null)
   }
 
   function updateUserCharacter(characterId: string) {
@@ -312,22 +456,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'No user logged in' }
     }
 
-    // Validate length
-    if (newUsername.length === 0 || newUsername.length > 10) {
-      return { success: false, error: 'Username must be 1-10 characters' }
-    }
-
-    // Check for inappropriate words (basic profanity filter)
-    const inappropriateWords = ['fuck', 'shit', 'damn', 'ass', 'bitch', 'cunt', 'nigger', 'nigga', 'retard', 'fag', 'gay', 'homo', 'pussy', 'dick', 'cock', 'penis', 'vagina', 'sex', 'porn', 'xxx']
-    const lowerUsername = newUsername.toLowerCase()
-    for (const word of inappropriateWords) {
-      if (lowerUsername.includes(word)) {
-        return { success: false, error: 'Username contains inappropriate content' }
-      }
+    const trimmed = newUsername.trim()
+    const validationError = validateUsername(trimmed)
+    if (validationError) {
+      return { success: false, error: validationError }
     }
 
     // Check if username is available
-    const isAvailable = await checkUsernameAvailable(newUsername)
+    const isAvailable = await checkUsernameAvailable(trimmed)
     if (!isAvailable) {
       return { success: false, error: 'Username already taken' }
     }
@@ -336,15 +472,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isFirebaseAvailable || !db) {
       setCurrentUser(prev => {
         if (!prev) return prev
-        const next = { ...prev, displayName: newUsername }
+        const next = { ...prev, displayName: trimmed }
         persistLocalUser(next)
         return next
       })
       // Track username in local list
       const localUsernames = localStorage.getItem('localUsernames')
       const usernames = localUsernames ? JSON.parse(localUsernames) : []
-      if (!usernames.includes(newUsername.toLowerCase())) {
-        usernames.push(newUsername.toLowerCase())
+      if (!usernames.includes(trimmed.toLowerCase())) {
+        usernames.push(trimmed.toLowerCase())
         localStorage.setItem('localUsernames', JSON.stringify(usernames))
       }
       return { success: true }
@@ -352,11 +488,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         setCurrentUser(prev => {
           if (!prev) return prev
-          const next = { ...prev, displayName: newUsername }
+          const next = { ...prev, displayName: trimmed }
           return next
         })
         const userRef = doc(db, 'users', currentUser.uid)
-        await updateDoc(userRef, { displayName: newUsername })
+        await updateDoc(userRef, { displayName: trimmed })
         return { success: true }
       } catch (error) {
         console.error('Error updating username:', error)
@@ -371,7 +507,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const storedGuest = localStorage.getItem('guestUser')
       if (storedGuest) {
         console.log('Restoring guest user from localStorage')
-        setCurrentUser(JSON.parse(storedGuest))
+        const parsed = JSON.parse(storedGuest)
+        setCurrentUser({ ...parsed, coins: parsed.coins ?? 5000 })
       }
       setLoading(false)
       return
@@ -382,7 +519,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userRef = doc(db, 'users', firebaseUser.uid)
         const userDoc = await getDoc(userRef)
         if (userDoc.exists()) {
-          setCurrentUser(userDoc.data() as User)
+          const data = userDoc.data() as User
+          setCurrentUser({ ...data, coins: data.coins ?? 5000 })
         }
       } else {
         setCurrentUser(null)
@@ -400,6 +538,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signInAsGuest,
     signOut,
+    resetPassword,
+    deleteAccount,
     updateUserCharacter,
     updateUserCosmetics,
     updateUserStats,

@@ -5,6 +5,7 @@
 .online-container {
   width: 100%;
   max-width: 900px;
+  min-width: 0;
 }
 
 .online-header {
@@ -310,5 +311,126 @@
 .friend-actions {
   display: flex;
   gap: 8px;
+}
+
+/* --- Phone & tablet breakpoints (768 tablet, 480 phone, 390 narrow) --- */
+
+@media (max-width: 768px) {
+  .online-menu-screen {
+    padding: 16px;
+  }
+
+  .online-header {
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .online-header h1 {
+    font-size: 20px;
+  }
+
+  .online-tabs {
+    margin-bottom: 24px;
+  }
+
+  .tab-btn {
+    padding: 12px 8px;
+    font-size: 10px;
+  }
+
+  .table-header,
+  .table-row {
+    grid-template-columns: 32px 1fr 56px 48px 48px 48px;
+    gap: 8px;
+    padding: 10px 6px;
+    font-size: 11px;
+  }
+
+  .col-stat {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .online-menu-screen {
+    padding: 12px;
+  }
+
+  .online-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .online-header h1 {
+    font-size: 18px;
+  }
+
+  .online-tabs {
+    flex-direction: column;
+  }
+
+  .tab-btn {
+    padding: 12px;
+  }
+
+  .leaderboard-table {
+    overflow-x: auto;
+    padding: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-header,
+  .table-row {
+    grid-template-columns: 28px minmax(80px, 1fr) 48px 44px 44px 44px;
+    gap: 6px;
+    padding: 8px 4px;
+    font-size: 10px;
+    min-width: 320px;
+  }
+
+  .col-stat {
+    font-size: 9px;
+  }
+
+  .online-card {
+    padding: 20px 16px;
+  }
+
+  .card-icon {
+    font-size: 36px;
+  }
+
+  .online-card h3 {
+    font-size: 16px;
+  }
+
+  .search-bar {
+    padding: 12px;
+    flex-direction: column;
+  }
+
+  .friend-card {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .friend-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 390px) {
+  .online-header h1 {
+    font-size: 16px;
+  }
+
+  .table-header,
+  .table-row {
+    grid-template-columns: 24px minmax(70px, 1fr) 40px 38px 38px 38px;
+    font-size: 9px;
+    min-width: 280px;
+  }
 }
 

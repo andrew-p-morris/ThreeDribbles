@@ -49,6 +49,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [showBlockPopup, setShowBlockPopup] = useState(false) // Show "-1 dribble" popup
   const pendingShotStateRef = useRef<GameState | null>(null)
   const shotAnimationFallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const consecutiveHardWinsRef = useRef(0)
+  const hard11_0WinsThisSessionRef = useRef(0)
 
   function startGame(mode: GameMode, archetype: Archetype, difficulty?: 'easy' | 'medium' | 'hard', player2Archetype?: Archetype) {
     if (!currentUser) {
@@ -92,6 +94,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
 
     const newGame = initializeGame(player1, player2, mode, difficulty)
+    if (mode !== 'ai' || difficulty !== 'hard') {
+      consecutiveHardWinsRef.current = 0
+    }
     updateGameState(newGame)
     setMoveHistory([])
     setTurnNumber(0)
@@ -384,6 +389,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
     // Check if player 1 won
     const won = endedGameState.winner === currentUser.displayName
     
+    // Update session counters for Practice Hard (before unlock check)
+    const isPracticeHard = endedGameState.mode === 'ai' && endedGameState.aiDifficulty === 'hard'
+    if (isPracticeHard) {
+      if (won) {
+        consecutiveHardWinsRef.current += 1
+        const is11_0 = endedGameState.player1.score === 11 && endedGameState.player2.score === 0
+        if (is11_0) hard11_0WinsThisSessionRef.current += 1
+      } else {
+        consecutiveHardWinsRef.current = 0
+      }
+    }
+    
     // Use player 1's stats (the current user)
     const playerStats = endedGameState.player1
     
@@ -398,7 +415,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     )
 
     const currentUnlocked = currentUser.unlockedCosmetics || []
-    const newlyUnlocked = checkUnlocks(endedGameState, currentUnlocked)
+    const unlockContext = {
+      consecutiveHardWins: consecutiveHardWinsRef.current,
+      hard11_0WinsThisSession: hard11_0WinsThisSessionRef.current
+    }
+    const newlyUnlocked = checkUnlocks(endedGameState, currentUnlocked, unlockContext)
     if (newlyUnlocked.length > 0) {
       updateUserUnlockedCosmetics(newlyUnlocked)
     }

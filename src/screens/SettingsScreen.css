@@ -279,7 +279,50 @@
   cursor: not-allowed;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 768px) {
+  .settings-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .settings-header h1 {
+    font-size: 18px;
+  }
+
+  .header-right {
+    flex: 1 1 100%;
+    min-width: 0;
+    order: 3;
+    justify-content: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .coins-display,
+  .settings-header .username {
+    font-size: 12px;
+  }
+
+  .settings-header .btn-unlock {
+    padding: 8px 12px;
+    font-size: 9px;
+  }
+
+  .settings-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 24px;
+    padding-bottom: 4px;
+  }
+
+  .settings-tabs .tab-btn {
+    flex: 0 0 auto;
+    min-width: 72px;
+    padding: 12px 10px;
+    font-size: 10px;
+  }
+
   .cosmetics-content {
     flex-direction: column;
   }
@@ -350,6 +393,56 @@
 .cosmetic-card.selected-locked {
   border-color: #FFD700;
   box-shadow: 0 0 0 2px #FFD700, 4px 4px 0 #000;
+}
+
+.cosmetic-card.in-preview {
+  border-color: #ff6b35;
+  box-shadow: 0 0 0 2px #ff6b35, 4px 4px 0 #000;
+}
+
+.preview-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #ff6b35;
+  color: #000;
+  font-size: 8px;
+  font-weight: bold;
+  padding: 2px 4px;
+  border: 2px solid #000;
+}
+
+.preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn-preview-action {
+  padding: 8px 16px;
+  font-size: 10px;
+  background: #ff6b35;
+  color: #000;
+  border: 2px solid #000;
+  cursor: pointer;
+  font-family: 'Press Start 2P', monospace;
+  transition: all 0.2s ease;
+}
+
+.btn-preview-action:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 #000;
+}
+
+.btn-clear-preview {
+  background: transparent;
+  color: #f4e4c1;
+  border-color: rgba(244, 228, 193, 0.6);
+}
+
+.btn-clear-preview:hover {
+  border-color: #f4e4c1;
 }
 
 .cosmetic-emoji {
@@ -496,6 +589,50 @@
   color: #ff6b35;
 }
 
+/* FAQ */
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.faq-item {
+  padding: 16px 20px;
+}
+
+.faq-question {
+  font-size: 14px;
+  color: #ff6b35;
+  margin: 0 0 8px 0;
+}
+
+.faq-answer {
+  font-size: 12px;
+  color: #f4e4c1;
+  margin: 0;
+  line-height: 1.5;
+  opacity: 0.95;
+}
+
+.faq-how-to-play h4 {
+  font-size: 12px;
+  color: #ff6b35;
+  margin: 12px 0 6px 0;
+}
+
+.faq-how-to-play h4:first-of-type {
+  margin-top: 0;
+}
+
+.faq-how-to-play ul {
+  margin: 0 0 8px 0;
+  padding-left: 20px;
+}
+
+.faq-how-to-play li {
+  margin-bottom: 4px;
+}
+
 /* System Settings */
 .system-setting {
   margin-bottom: 24px;
@@ -599,6 +736,251 @@
 }
 
 /* Shop */
+.shop-section .cosmetics-content {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.shop-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.shop-preview {
+  margin-bottom: 24px;
+}
+
+.shop-preview .btn-close-unlock {
+  margin-top: 12px;
+}
+
+/* Shop category tabs + dropdown */
+.shop-category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.shop-tabs-label {
+  font-size: 11px;
+  color: rgba(244, 228, 193, 0.8);
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
+.shop-category-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: #3d2817;
+  border: 2px solid #000;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 9px;
+  color: #f4e4c1;
+}
+
+.shop-category-tab:hover {
+  border-color: #ff6b35;
+  transform: translate(1px, 1px);
+}
+
+.shop-category-tab.active {
+  border-color: #FFD700;
+  box-shadow: 0 0 0 1px #FFD700;
+}
+
+.shop-tab-emoji {
+  font-size: 14px;
+}
+
+.shop-tab-label {
+  text-transform: capitalize;
+}
+
+.shop-category-dropdown {
+  padding: 16px;
+  margin-top: 0;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 10px;
+}
+
+.shop-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  gap: 6px;
+}
+
+.shop-card .cosmetic-preview-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+}
+
+.shop-card .cosmetic-preview-btn:hover {
+  opacity: 0.9;
+}
+
+.shop-card .cosmetic-emoji {
+  font-size: 24px;
+}
+
+.shop-card .cosmetic-name {
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.shop-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.shop-price {
+  font-size: 10px;
+  color: #FFD700;
+}
+
+.shop-owned {
+  font-size: 9px;
+  color: #00ff00;
+}
+
+.shop-card.owned .cosmetic-emoji {
+  opacity: 0.9;
+}
+
+.shop-card.in-preview {
+  border-color: #ff6b35;
+  box-shadow: 0 0 0 2px #ff6b35, 4px 4px 0 #000;
+}
+
+/* Buy Coins section */
+.buy-coins-section {
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.buy-coins-section h3 {
+  font-size: 16px;
+  color: #ff6b35;
+  margin-bottom: 8px;
+}
+
+.buy-coins-description {
+  font-size: 11px;
+  color: rgba(244, 228, 193, 0.8);
+  margin-bottom: 16px;
+}
+
+.coin-packages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.coin-package-btn {
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  background: #3d2817;
+  border: 3px solid #000;
+  transition: all 0.2s ease;
+  min-width: 90px;
+}
+
+.coin-package-btn:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 4px 4px 0 #000;
+  border-color: #FFD700;
+}
+
+.coin-package-emoji {
+  font-size: 28px;
+}
+
+.coin-package-amount {
+  font-size: 18px;
+  font-weight: bold;
+  color: #FFD700;
+}
+
+.coin-package-label {
+  font-size: 9px;
+  color: rgba(244, 228, 193, 0.8);
+}
+
+/* Coin purchase modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  max-width: 400px;
+  width: 100%;
+  padding: 24px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #f4e4c1;
+}
+
+.modal-body {
+  font-size: 12px;
+  color: rgba(244, 228, 193, 0.9);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.modal-body strong {
+  color: #FFD700;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .shop-description {
   font-size: 12px;
   color: rgba(244, 228, 193, 0.8);

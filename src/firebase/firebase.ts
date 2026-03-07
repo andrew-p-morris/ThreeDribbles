@@ -17,7 +17,9 @@ if (isFirebaseConfigured) {
     app = initializeApp(firebaseConfig)
     auth = getAuth(app)
     db = getFirestore(app)
-    rtdb = getDatabase(app)
+    if (firebaseConfig.databaseURL) {
+      rtdb = getDatabase(app)
+    }
   } catch (error) {
     console.warn('Firebase initialization failed:', error)
   }

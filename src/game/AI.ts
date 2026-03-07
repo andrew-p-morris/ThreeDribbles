@@ -248,7 +248,7 @@ function getHardMove(gameState: GameState, isOffense: boolean): number {
 			return { move, ev }
 		})
 
-		const chosen = softmaxSample(scored, s => s.ev, 0.12).move
+		const chosen = argmaxRandom(scored, s => s.ev).move
 		rememberMove(true, chosen === -1 ? offPos : chosen)
 		return chosen
 	} else {
@@ -301,7 +301,7 @@ function getHardMove(gameState: GameState, isOffense: boolean): number {
 		}
 
 		const moves = Array.from(weights.keys())
-		const selected = softmaxSample(moves, m => weights.get(m) || 0, 0.10)
+		const selected = argmaxRandom(moves, m => weights.get(m) || 0)
 		rememberMove(false, selected)
 		return selected
 	}

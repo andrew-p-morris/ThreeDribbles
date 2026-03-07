@@ -8,10 +8,14 @@ function LoginScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotMessage, setForgotMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const { signUp, signIn, signInAsGuest } = useAuth()
+  const { signUp, signIn, signInAsGuest, resetPassword } = useAuth()
   const navigate = useNavigate()
 
   async function handleSubmit(e: React.FormEvent) {
@@ -21,13 +25,35 @@ function LoginScreen() {
 
     try {
       if (isSignUp) {
-        await signUp(email, password, username)
+        if (password !== confirmPassword) {
+          setError('Passwords do not match')
+          setLoading(false)
+          return
+        }
+        await signUp(email, password, username.trim())
       } else {
-        await signIn(email, password)
+        await signIn(email.trim(), password)
       }
       navigate('/home')
     } catch (err: any) {
       setError(err.message || 'Authentication failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleForgotSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setForgotMessage(null)
+    const value = forgotEmail.trim()
+    if (!value) return
+    setLoading(true)
+    try {
+      await resetPassword(value)
+      setForgotMessage({ type: 'success', text: 'Check your email for a link to reset your password.' })
+      setForgotEmail('')
+    } catch (err: any) {
+      setForgotMessage({ type: 'error', text: err.message || 'Failed to send reset email.' })
     } finally {
       setLoading(false)
     }
@@ -57,51 +83,134 @@ function LoginScreen() {
         <p className="game-subtitle">RETRO BASKETBALL</p>
 
         <div className="card login-card">
-          <h2>{isSignUp ? 'Create Account' : 'Sign In'}</h2>
+          <h2>{isSignUp ? 'Create Account' : showForgotPassword ? 'Reset Password' : 'Sign In'}</h2>
 
           {error && <div className="error-message">{error}</div>}
 
-          <form onSubmit={handleSubmit}>
-            {isSignUp && (
+          {showForgotPassword ? (
+            <form onSubmit={handleForgotSubmit}>
+              {forgotMessage && (
+                <div className={forgotMessage.type === 'success' ? 'success-message' : 'error-message'}>
+                  {forgotMessage.text}
+                </div>
+              )}
               <div className="form-group">
-                <label>Username</label>
+                <label>Username or email</label>
                 <input
                   type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Choose a username"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="Username or email"
                   required
                 />
               </div>
+              <button type="submit" className="btn btn-primary" disabled={loading}>
+                {loading ? 'Sending...' : 'Send reset link'}
+              </button>
+              <p className="toggle-text">
+                <span
+                  className="toggle-link"
+                  onClick={() => {
+                    setShowForgotPassword(false)
+                    setForgotMessage(null)
+                    setForgotEmail('')
+                  }}
+                >
+                  Back to sign in
+                </span>
+              </p>
+            </form>
+          ) : (
+          <form onSubmit={handleSubmit}>
+            {isSignUp ? (
+              <>
+                <div className="form-group">
+                  <label>Username</label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Choose a username"
+                    maxLength={12}
+                    required
+                  />
+                  <p className="input-hint">Letters and numbers only, 1–12 characters.</p>
+                </div>
+                <div className="form-group">
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Confirm password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="form-group">
+                  <label>Username or email</label>
+                  <input
+                    type="text"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Username or email"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+                {!showForgotPassword ? (
+                  <p className="forgot-row">
+                    <button
+                      type="button"
+                      className="forgot-link"
+                      onClick={() => setShowForgotPassword(true)}
+                    >
+                      Forgot password?
+                    </button>
+                  </p>
+                ) : null}
+              </>
             )}
-
-            <div className="form-group">
-              <label>Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </div>
 
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
             </button>
           </form>
+          )}
 
+          {!showForgotPassword && (
+          <>
           <div className="divider">OR</div>
 
           <button onClick={handleGuestLogin} className="btn btn-secondary" disabled={loading}>
@@ -110,10 +219,18 @@ function LoginScreen() {
 
           <p className="toggle-text">
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <span className="toggle-link" onClick={() => setIsSignUp(!isSignUp)}>
+            <span
+              className="toggle-link"
+              onClick={() => {
+                setIsSignUp(!isSignUp)
+                setConfirmPassword('')
+              }}
+            >
               {isSignUp ? 'Sign In' : 'Sign Up'}
             </span>
           </p>
+          </>
+          )}
         </div>
 
         <div className="features">
