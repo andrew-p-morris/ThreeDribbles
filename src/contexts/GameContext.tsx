@@ -6,18 +6,23 @@ import { checkUnlocks } from '../game/Unlocks'
 import { getPosition } from '../game/CourtPositions'
 import { CHARACTERS } from '../types/Character'
 import { useAuth } from './AuthContext'
+import { getGameDoc, subscribeToGame, updateGameDoc } from '../firebase/online'
 
 type GameContextType = {
   gameState: GameState | null
   lastShotResult: { made: boolean, points: number, probability: number, baseProbability: number, distance: number, shotBy: 'player1' | 'player2', shotPosition: number } | null
-  showShotBanner: boolean // Controls when banner is shown (after animation completes)
+  showShotBanner: boolean
   moveHistory: MoveHistory[]
   showMoveComplete: number | null
-  showBlockPopup: boolean // Show "-1 dribble" popup when defender guesses correctly
-  completeShotAnimation: () => void // Called by GameScreen when ball animation finishes
+  showBlockPopup: boolean
+  completeShotAnimation: () => void
   startGame: (mode: GameMode, archetype: Archetype, difficulty?: 'easy' | 'medium' | 'hard', player2Archetype?: Archetype) => void
+  startOnlineGameFromFirestore: (gameId: string, myRole: 'player1' | 'player2') => Promise<void>
+  onlineGameLoading: boolean
+  onlineMyRole: 'player1' | 'player2' | null
   selectPosition: (position: number) => void
   resetGame: () => void
+  quitOnlineGame: () => Promise<void>
   restartCurrentGame: () => void
 }
 
@@ -51,6 +56,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const shotAnimationFallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const consecutiveHardWinsRef = useRef(0)
   const hard11_0WinsThisSessionRef = useRef(0)
+  const onlineGameIdRef = useRef<string | null>(null)
+  const onlineMyRoleRef = useRef<'player1' | 'player2' | null>(null)
+  const onlineUnsubRef = useRef<(() => void) | null>(null)
+  const onlineSavedGameIdRef = useRef<string | null>(null)
+  const [onlineGameLoading, setOnlineGameLoading] = useState(false)
+  const [onlineMyRole, setOnlineMyRole] = useState<'player1' | 'player2' | null>(null)
 
   function startGame(mode: GameMode, archetype: Archetype, difficulty?: 'easy' | 'medium' | 'hard', player2Archetype?: Archetype) {
     if (!currentUser) {
@@ -103,10 +114,82 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setShowMoveComplete(null)
   }
 
+  async function startOnlineGameFromFirestore(gameId: string, myRole: 'player1' | 'player2') {
+    if (!currentUser) return
+    if (onlineUnsubRef.current) {
+      onlineUnsubRef.current()
+      onlineUnsubRef.current = null
+    }
+    setOnlineGameLoading(true)
+    onlineGameIdRef.current = gameId
+    onlineMyRoleRef.current = myRole
+    setOnlineMyRole(myRole)
+    onlineSavedGameIdRef.current = null
+    try {
+      const gameDoc = await getGameDoc(gameId)
+      if (!gameDoc?.gameState) {
+        setOnlineGameLoading(false)
+        updateGameState(null)
+        return
+      }
+      let stateToUse = gameDoc.gameState
+      if (myRole === 'player2') {
+        const myCosmetics = currentUser.equippedCosmetics ?? {}
+        stateToUse = {
+          ...gameDoc.gameState,
+          player2: {
+            ...gameDoc.gameState.player2,
+            equippedCosmetics: myCosmetics
+          }
+        }
+        updateGameState(stateToUse)
+        await updateGameDoc(gameId, stateToUse)
+      } else {
+        updateGameState(stateToUse)
+      }
+      setMoveHistory([])
+      setTurnNumber(0)
+      setShowMoveComplete(null)
+      setOnlineGameLoading(false)
+      onlineUnsubRef.current = subscribeToGame(gameId, (data) => {
+        const remote = data.gameState
+        if (!remote) return
+        if (data.lastShotResult) {
+          setLastShotResult({ ...data.lastShotResult, shotBy: data.lastShotResult.shotBy, shotPosition: data.lastShotResult.shotPosition })
+          setShowShotBanner(false)
+          pendingShotStateRef.current = remote
+          return
+        }
+        if (pendingShotStateRef.current) return
+        updateGameState(remote)
+        if (remote.status === 'finished' && currentUser && onlineSavedGameIdRef.current !== gameId) {
+          onlineSavedGameIdRef.current = gameId
+          saveGameStats(remote)
+        }
+      })
+    } catch (e) {
+      setOnlineGameLoading(false)
+      updateGameState(null)
+      console.error('Failed to load online game', e)
+    }
+  }
+
   function selectPosition(position: number) {
     // Use ref to get latest state to avoid stale closures
     const currentState = gameStateRef.current
     if (!currentState || currentState.status !== 'playing') return
+
+    // Online: only allow moves when it's our turn
+    if (currentState.mode === 'online' && onlineMyRoleRef.current) {
+      const myRole = onlineMyRoleRef.current
+      const isOffenseTurn = currentState.currentTurn === 'offense'
+      const isMyOffense = currentState.possession === 'player1' ? myRole === 'player1' : myRole === 'player2'
+      const isMyDefense = currentState.possession === 'player1' ? myRole === 'player2' : myRole === 'player1'
+      if (isOffenseTurn && !isMyOffense) return
+      if (!isOffenseTurn && !isMyDefense) return
+    }
+
+    const gameId = currentState.mode === 'online' ? onlineGameIdRef.current : null
 
     // Special case: position -1 means shoot from current position
     if (position === -1 && currentState.currentTurn === 'offense') {
@@ -121,6 +204,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         currentTurn: 'defense' as 'defense' 
       }
       updateGameState(updatedState)
+      if (gameId) updateGameDoc(gameId, updatedState).catch(console.error)
       return
     }
 
@@ -133,6 +217,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // Set offenseSelection and switch to defense turn
       const updatedState = { ...currentState, offenseSelection: position, currentTurn: 'defense' as 'defense' }
       updateGameState(updatedState)
+      if (gameId) updateGameDoc(gameId, updatedState).catch(console.error)
     } else if (currentState.currentTurn === 'defense') {
       // Validate defense move
       const isValid = validateMove(currentState, position, false)
@@ -254,6 +339,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // Store state to apply when GameScreen calls completeShotAnimation (after ball animation ends)
       pendingShotStateRef.current = newState
       
+      if (currentState.mode === 'online' && onlineGameIdRef.current) {
+        updateGameDoc(onlineGameIdRef.current, newState, {
+          ...shotResult,
+          shotBy: currentPossession,
+          shotPosition: offenseMove
+        }).catch(console.error)
+      }
+      
       // Fallback: if completeShotAnimation is never called (e.g. user navigates away), apply after 8s
       if (shotAnimationFallbackTimeoutRef.current) clearTimeout(shotAnimationFallbackTimeoutRef.current)
       shotAnimationFallbackTimeoutRef.current = setTimeout(() => {
@@ -283,6 +376,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     // Switch to next turn (offense for next move) - possession stays the same until a shot
     const nextState = newState ? { ...newState, currentTurn: 'offense' as 'offense', offenseSelection: null } : null
     updateGameState(nextState)
+    if (nextState && currentState.mode === 'online' && onlineGameIdRef.current) {
+      updateGameDoc(onlineGameIdRef.current, nextState).catch(console.error)
+    }
   }
 
   function completeShotAnimation() {
@@ -293,6 +389,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     const state = pendingShotStateRef.current
     pendingShotStateRef.current = null
+    // Update score and player positions at the same time so they don't appear out of sync
     updateGameState(state)
     setShowShotBanner(true)
     if (state.status === 'finished' && currentUser) saveGameStats(state)
@@ -385,9 +482,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (endedGameState.mode === 'ai' && endedGameState.aiDifficulty) {
       modeKey = `practice_${endedGameState.aiDifficulty}` as any
     }
+    if (endedGameState.mode === 'online') {
+      // Default to 'challenge' when gameSource is missing (legacy games or propagation bug)
+      modeKey = endedGameState.gameSource === 'quickmatch' ? 'online' : 'online_friends'
+    }
     
-    // Check if player 1 won
-    const won = endedGameState.winner === currentUser.displayName
+    // For online, use the player that matches currentUser to get stats and won
+    const isPlayer1 = endedGameState.player1.uid === currentUser.uid
+    const playerStats = isPlayer1 ? endedGameState.player1 : endedGameState.player2
+    const won = endedGameState.winner === (isPlayer1 ? endedGameState.player1.username : endedGameState.player2.username)
     
     // Update session counters for Practice Hard (before unlock check)
     const isPracticeHard = endedGameState.mode === 'ai' && endedGameState.aiDifficulty === 'hard'
@@ -400,9 +503,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         consecutiveHardWinsRef.current = 0
       }
     }
-    
-    // Use player 1's stats (the current user)
-    const playerStats = endedGameState.player1
     
     updateUserStats(
       modeKey,
@@ -431,6 +531,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
 
   function resetGame() {
+    if (onlineUnsubRef.current) {
+      onlineUnsubRef.current()
+      onlineUnsubRef.current = null
+    }
+    onlineGameIdRef.current = null
+    onlineMyRoleRef.current = null
+    setOnlineMyRole(null)
+    onlineSavedGameIdRef.current = null
     updateGameState(null)
     setLastShotResult(null)
     setShowShotBanner(false)
@@ -443,6 +551,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setTurnNumber(0)
     setShowMoveComplete(null)
     setShowBlockPopup(false)
+  }
+
+  /** End the online game for both players and record a loss for the quitter. */
+  async function quitOnlineGame(): Promise<void> {
+    const state = gameStateRef.current
+    if (!state || state.mode !== 'online' || !onlineGameIdRef.current || !onlineMyRoleRef.current) {
+      resetGame()
+      return
+    }
+    const myRole = onlineMyRoleRef.current
+    const winnerUsername = myRole === 'player1' ? state.player2.username : state.player1.username
+    const finishedState: GameState = { ...state, status: 'finished', winner: winnerUsername }
+    const gameId = onlineGameIdRef.current
+    try {
+      await updateGameDoc(gameId, finishedState)
+      if (currentUser) saveGameStats(finishedState)
+    } finally {
+      resetGame()
+    }
   }
 
   function restartCurrentGame() {
@@ -512,8 +639,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     showBlockPopup,
     completeShotAnimation,
     startGame,
+    startOnlineGameFromFirestore,
+    onlineGameLoading,
+    onlineMyRole,
     selectPosition,
     resetGame,
+    quitOnlineGame,
     restartCurrentGame
   }
 

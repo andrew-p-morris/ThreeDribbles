@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useSettings, COURT_THEME_DATA } from '../contexts/SettingsContext'
@@ -7,7 +7,15 @@ import { COSMETIC_ITEMS, EquippedCosmetics, CosmeticCategory, getCosmeticById } 
 import { getUnlockInstruction, getCosmeticPrice, getAllUnlockableCosmeticIds, getCourtThemePrice } from '../game/Unlocks'
 import { CourtThemeId } from '../types/CourtTheme'
 import { PixelCharacter } from '../components/PixelCharacter'
+import { CourtPreview } from '../components/CourtPreview'
 import './SettingsScreen.css'
+
+const COIN_PACKAGES = [
+  { amount: 100, price: 1.99 },
+  { amount: 500, price: 4.99 },
+  { amount: 1000, price: 9.99 },
+  { amount: 5000, price: 14.99 }
+]
 
 function SettingsScreen() {
   const navigate = useNavigate()
@@ -27,6 +35,8 @@ function SettingsScreen() {
   const [coinPurchaseModal, setCoinPurchaseModal] = useState<{ open: boolean; amount: number }>({ open: false, amount: 0 })
   const [confirmBuy, setConfirmBuy] = useState<{ name: string; emoji: string; price: number; onConfirm: () => void } | null>(null)
   const [activeTab, setActiveTab] = useState<'character' | 'cosmetics' | 'court' | 'stats' | 'shop' | 'faq' | 'system'>('character')
+  const buyCoinsSectionRef = useRef<HTMLDivElement>(null)
+  const [courtPreviewTheme, setCourtPreviewTheme] = useState<CourtThemeId | null>(null)
   
   const userUnlockedCosmetics = currentUser?.unlockedCosmetics || []
   
@@ -140,7 +150,8 @@ function SettingsScreen() {
       case 'practice_easy': return 'Practice (Easy)'
       case 'practice_medium': return 'Practice (Medium)'
       case 'practice_hard': return 'Practice (Hard)'
-      case 'online': return 'Online'
+      case 'online': return 'Online (Quick Match)'
+      case 'online_friends': return 'Online (Friends)'
       default: return modeKey
     }
   }
@@ -154,23 +165,27 @@ function SettingsScreen() {
     <div className="screen settings-screen">
       <div className="settings-container">
         <header className="settings-header">
-          <button onClick={() => navigate('/home')} className="btn-back">
-            ← Back
-          </button>
-          <h1>⚙️ SETTINGS</h1>
-          <div className="header-right">
-            <span className="coins-display" title="Coins (win Practice: Easy 1, Medium 3, Hard 5)">
-              🪙 {currentUser?.coins ?? 0}
-            </span>
-            <span className="username">{currentUser?.displayName || 'Guest'}</span>
-            <button
-              type="button"
-              onClick={() => setCoinPurchaseModal({ open: true, amount: 100 })}
-              className="btn-unlock"
-            >
-              🪙 Buy Coins
+          <div className="settings-header-row">
+            <button onClick={() => navigate('/home')} className="btn-back" aria-label="Back">
+              ←
             </button>
+            <div className="header-right">
+              <span className="coins-display" title="Coins (win Practice: Easy 1, Medium 3, Hard 5)">
+                🪙 {currentUser?.coins ?? 0}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('shop')
+                  setTimeout(() => buyCoinsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+                }}
+                className="btn-unlock"
+              >
+                🪙 Buy Coins
+              </button>
+            </div>
           </div>
+          <h1 className="settings-title">SETTINGS</h1>
         </header>
 
         <div className="settings-tabs">
@@ -319,7 +334,8 @@ function SettingsScreen() {
                 .map(([id, data]) => (
                   <button
                     key={id}
-                    onClick={() => setCourtTheme(id as CourtThemeId)}
+                    type="button"
+                    onClick={() => setCourtPreviewTheme(id as CourtThemeId)}
                     className={`card theme-card ${courtTheme === id ? 'selected' : ''}`}
                   >
                     <div className="theme-emoji">{data.emoji}</div>
@@ -358,7 +374,7 @@ function SettingsScreen() {
             </div>
 
             <h3>Stats by Mode</h3>
-            {['local', 'practice_easy', 'practice_medium', 'practice_hard', 'online'].map(modeKey => {
+            {['local', 'practice_easy', 'practice_medium', 'practice_hard', 'online', 'online_friends'].map(modeKey => {
               const modeStats = currentUser?.stats[modeKey as keyof typeof currentUser.stats] as any
               if (!modeStats || typeof modeStats === 'string' || typeof modeStats === 'number' || !modeStats.totalGames || modeStats.totalGames === 0) {
                 return null
@@ -463,16 +479,24 @@ function SettingsScreen() {
                             return (
                               <div
                                 key={entry.id}
+                                role="button"
+                                tabIndex={0}
                                 className={`card cosmetic-card shop-card ${selected ? 'selected-locked' : ''} ${owned ? 'owned' : ''}`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedShopItemId(entry.id)
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    setSelectedShopItemId(entry.id)
+                                  }
+                                }}
                               >
-                                <button
-                                  type="button"
-                                  className="cosmetic-preview-btn"
-                                  onClick={() => setSelectedShopItemId(entry.id)}
-                                >
+                                <div className="cosmetic-preview-btn">
                                   <div className="cosmetic-emoji">{entry.emoji}</div>
                                   <div className="cosmetic-name">{entry.name}</div>
-                                </button>
+                                </div>
                                 <div className="shop-card-meta">
                                   <span className="shop-price">🪙 {price}</span>
                                   {owned ? (
@@ -694,47 +718,36 @@ function SettingsScreen() {
               )}
             </div>
 
-            <div className="buy-coins-section card">
+            <div className="buy-coins-section card" ref={buyCoinsSectionRef}>
               <h3>Buy Coins</h3>
               <p className="buy-coins-description">Get more coins to unlock cosmetics. Secure payment (Stripe) coming soon.</p>
               <div className="coin-packages">
-                <button
-                  type="button"
-                  className="card coin-package-btn"
-                  onClick={() => setCoinPurchaseModal({ open: true, amount: 10 })}
-                >
-                  <span className="coin-package-emoji">🪙</span>
-                  <span className="coin-package-amount">10</span>
-                  <span className="coin-package-label">coins</span>
-                </button>
-                <button
-                  type="button"
-                  className="card coin-package-btn"
-                  onClick={() => setCoinPurchaseModal({ open: true, amount: 100 })}
-                >
-                  <span className="coin-package-emoji">🪙</span>
-                  <span className="coin-package-amount">100</span>
-                  <span className="coin-package-label">coins</span>
-                </button>
-                <button
-                  type="button"
-                  className="card coin-package-btn"
-                  onClick={() => setCoinPurchaseModal({ open: true, amount: 1000 })}
-                >
-                  <span className="coin-package-emoji">🪙</span>
-                  <span className="coin-package-amount">1000</span>
-                  <span className="coin-package-label">coins</span>
-                </button>
+                {COIN_PACKAGES.map((pkg) => (
+                  <button
+                    key={pkg.amount}
+                    type="button"
+                    className="card coin-package-btn"
+                    onClick={() => setCoinPurchaseModal({ open: true, amount: pkg.amount })}
+                  >
+                    <span className="coin-package-emoji">🪙</span>
+                    <span className="coin-package-amount">{pkg.amount.toLocaleString()}</span>
+                    <span className="coin-package-label">coins</span>
+                    <span className="coin-package-price">${pkg.price.toFixed(2)}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         )}
 
-        {coinPurchaseModal.open && (
+        {coinPurchaseModal.open && (() => {
+          const pkg = COIN_PACKAGES.find(p => p.amount === coinPurchaseModal.amount)
+          const priceStr = pkg ? `$${pkg.price.toFixed(2)}` : ''
+          return (
           <div className="modal-overlay" onClick={() => setCoinPurchaseModal({ open: false, amount: 0 })}>
             <div className="modal-content card" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Buy {coinPurchaseModal.amount} coins</h3>
+                <h3>Buy {coinPurchaseModal.amount.toLocaleString()} coins</h3>
                 <button
                   type="button"
                   className="btn-close-unlock"
@@ -745,7 +758,7 @@ function SettingsScreen() {
                 </button>
               </div>
               <p className="modal-body">
-                Secure payment with Stripe will be available soon. You selected the <strong>{coinPurchaseModal.amount} coins</strong> package.
+                Secure payment with Stripe will be available soon. You selected the <strong>{coinPurchaseModal.amount.toLocaleString()} coins</strong> package{priceStr ? ` — ${priceStr}` : ''}.
               </p>
               <div className="modal-footer">
                 <button
@@ -754,6 +767,47 @@ function SettingsScreen() {
                   onClick={() => setCoinPurchaseModal({ open: false, amount: 0 })}
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+          )
+        })()}
+
+        {courtPreviewTheme && (
+          <div className="modal-overlay" onClick={() => setCourtPreviewTheme(null)}>
+            <div className="modal-content card court-preview-modal" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>{COURT_THEME_DATA[courtPreviewTheme]?.name ?? 'Court'}</h3>
+                <button
+                  type="button"
+                  className="btn-close-unlock"
+                  onClick={() => setCourtPreviewTheme(null)}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="court-preview-wrap">
+                <CourtPreview themeId={courtPreviewTheme} />
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setCourtPreviewTheme(null)}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setCourtTheme(courtPreviewTheme)
+                    setCourtPreviewTheme(null)
+                  }}
+                >
+                  Use this court
                 </button>
               </div>
             </div>
@@ -843,7 +897,7 @@ function SettingsScreen() {
               </div>
               <div className="faq-item card">
                 <h3 className="faq-question">What are the game modes?</h3>
-                <p className="faq-answer">Local Multiplayer lets two people play on the same device. Practice mode pits you against AI (Easy, Medium, or Hard). Online mode is for playing against others worldwide.</p>
+                <p className="faq-answer">Local Multiplayer lets two people play on the same device. Practice mode pits you against CPU (Easy, Medium, or Hard). Online mode is for playing against others worldwide.</p>
               </div>
               <div className="faq-item card">
                 <h3 className="faq-question">How do I win a game?</h3>
@@ -886,10 +940,13 @@ function SettingsScreen() {
 
             <div className="system-setting card">
               <h3>Username</h3>
-              <p className="setting-description">Letters and numbers only, 1–12 characters.</p>
+              <p className="setting-description">Letters and numbers only, 1–12 characters. You can change your username twice per account.</p>
               <div className="username-change">
                 <div className="current-username">
                   Current: <strong>{currentUser?.displayName || 'Guest'}</strong>
+                </div>
+                <div className="username-changes-remaining">
+                  {2 - (currentUser?.usernameChangesUsed ?? 0)} of 2 username changes remaining
                 </div>
                 <div className="username-input-group">
                   <input
@@ -903,6 +960,7 @@ function SettingsScreen() {
                     placeholder="Enter new username"
                     maxLength={12}
                     className="username-input"
+                    disabled={(currentUser?.usernameChangesUsed ?? 0) >= 2}
                   />
                   <button
                     onClick={async () => {
@@ -923,9 +981,13 @@ function SettingsScreen() {
                       }
                     }}
                     className="btn btn-primary"
-                    disabled={!newUsername.trim() || newUsername.trim() === currentUser?.displayName}
+                    disabled={
+                      !newUsername.trim() ||
+                      newUsername.trim() === currentUser?.displayName ||
+                      (currentUser?.usernameChangesUsed ?? 0) >= 2
+                    }
                   >
-                    Change
+                    Save
                   </button>
                 </div>
                 {usernameError && (

@@ -22,6 +22,7 @@ export type PlayerState = {
   shotsAttempted: number
   threesMade: number
   threesAttempted: number
+  equippedCosmetics?: import('./Cosmetics').EquippedCosmetics
 }
 
 export type GameState = {
@@ -38,6 +39,7 @@ export type GameState = {
   status: 'setup' | 'playing' | 'finished'
   winner: string | null
   aiDifficulty?: 'easy' | 'medium' | 'hard'
+  gameSource?: 'quickmatch' | 'challenge'
 }
 
 export type ShotResult = {

@@ -79,7 +79,7 @@ function LoginScreen() {
   return (
     <div className="screen login-screen">
       <div className="login-container">
-        <h1 className="game-title">🏀 THREE DRIBBLES</h1>
+        <h1 className="game-title">THREE DRIBBLES</h1>
         <p className="game-subtitle">RETRO BASKETBALL</p>
 
         <div className="card login-card">
@@ -240,7 +240,7 @@ function LoginScreen() {
           </div>
           <div className="feature">
             <span className="feature-icon">🤖</span>
-            <span>AI Opponents</span>
+            <span>CPU</span>
           </div>
           <div className="feature">
             <span className="feature-icon">🏆</span>

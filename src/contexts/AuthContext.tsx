@@ -11,7 +11,7 @@ import {
   EmailAuthProvider,
   User as FirebaseUser
 } from 'firebase/auth'
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore'
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { auth, db } from '../firebase/firebase'
 import { User, ModeStats } from '../types/User'
 import { EquippedCosmetics } from '../types/Cosmetics'
@@ -21,6 +21,12 @@ const isFirebaseAvailable = auth !== null && db !== null
 
 const USERNAME_MAX_LENGTH = 12
 const USERNAME_BAD_WORDS = ['fuck', 'shit', 'damn', 'ass', 'bitch', 'cunt', 'nigger', 'nigga', 'retard', 'fag', 'gay', 'homo', 'pussy', 'dick', 'cock', 'penis', 'vagina', 'sex', 'porn', 'xxx']
+
+/** Username display: all letters uppercase (e.g. "drew" → "DREW"). */
+function capitalizeDisplayName(name: string): string {
+  if (!name || !name.trim()) return name
+  return name.trim().toUpperCase()
+}
 
 /** Returns an error message if invalid, or null if valid. Expects trimmed input. */
 function validateUsername(username: string): string | null {
@@ -84,10 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function createUserDocument(firebaseUser: FirebaseUser, isGuest: boolean, username?: string) {
     if (!isFirebaseAvailable || !db) {
       // Create local user without Firebase
+      const raw = username || (isGuest ? `Guest${Math.floor(Math.random() * 9999)}` : 'Player')
+      const displayName = capitalizeDisplayName(raw)
       const userData: User = {
         uid: firebaseUser.uid,
         email: firebaseUser.email,
-        displayName: username || (isGuest ? `Guest${Math.floor(Math.random() * 9999)}` : 'Player'),
+        displayName,
         isGuest,
         stats: {
           wins: 0,
@@ -106,10 +114,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userDoc = await getDoc(userRef)
     
     if (!userDoc.exists()) {
+      const raw = username || (isGuest ? `Guest${Math.floor(Math.random() * 9999)}` : 'Player')
+      const displayName = capitalizeDisplayName(raw)
       const userData: User = {
         uid: firebaseUser.uid,
         email: firebaseUser.email,
-        displayName: username || (isGuest ? `Guest${Math.floor(Math.random() * 9999)}` : 'Player'),
+        displayName,
         isGuest,
         stats: {
           wins: 0,
@@ -121,11 +131,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         coins: 5000,
         createdAt: Date.now()
       }
-      
-      await setDoc(userRef, userData)
+      await setDoc(userRef, { ...userData, displayNameLower: displayName.toLowerCase() })
       return userData
     } else {
-      return userDoc.data() as User
+      const data = userDoc.data() as User
+      return { ...data, displayName: capitalizeDisplayName(data.displayName || '') }
     }
   }
 
@@ -143,7 +153,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error('Username already taken')
     }
     const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-    await createUserDocument(userCredential.user, false, trimmed)
+    const userData = await createUserDocument(userCredential.user, false, trimmed)
+    setCurrentUser({ ...userData, coins: userData.coins ?? 5000, displayName: capitalizeDisplayName(userData.displayName) })
+    setLoading(false)
   }
 
   async function signIn(usernameOrEmail: string, password: string) {
@@ -153,8 +165,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let email = usernameOrEmail.trim()
     if (!email.includes('@') && db) {
       const usersRef = collection(db, 'users')
-      const q = query(usersRef, where('displayName', '==', usernameOrEmail.trim()))
-      const querySnapshot = await getDocs(q)
+      const trimmed = usernameOrEmail.trim()
+      const qLower = query(usersRef, where('displayNameLower', '==', trimmed.toLowerCase()), limit(1))
+      let querySnapshot = await getDocs(qLower)
+      if (querySnapshot.empty) {
+        const qExact = query(usersRef, where('displayName', '==', trimmed), limit(1))
+        querySnapshot = await getDocs(qExact)
+      }
       if (querySnapshot.empty) {
         throw new Error('Invalid username or password')
       }
@@ -166,7 +183,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email = foundEmail
     }
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      if (db) {
+        const userRef = doc(db, 'users', userCredential.user.uid)
+        const userDoc = await getDoc(userRef)
+        if (userDoc.exists()) {
+          const data = userDoc.data() as User
+          setCurrentUser({ ...data, coins: data.coins ?? 5000, displayName: capitalizeDisplayName(data.displayName || '') })
+        }
+      }
+      setLoading(false)
     } catch (err: any) {
       const code = err?.code
       if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
@@ -183,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return {
         uid: `guest_${Date.now()}`,
         email: null,
-        displayName: `Guest${Math.floor(Math.random() * 9999)}`,
+        displayName: capitalizeDisplayName(`Guest${Math.floor(Math.random() * 9999)}`),
         isGuest: true,
         stats: {
           wins: 0,
@@ -233,8 +259,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let email = emailOrUsername.trim()
     if (!email.includes('@') && db) {
       const usersRef = collection(db, 'users')
-      const q = query(usersRef, where('displayName', '==', email))
-      const querySnapshot = await getDocs(q)
+      const qLower = query(usersRef, where('displayNameLower', '==', email.toLowerCase()), limit(1))
+      let querySnapshot = await getDocs(qLower)
+      if (querySnapshot.empty) {
+        const qExact = query(usersRef, where('displayName', '==', email), limit(1))
+        querySnapshot = await getDocs(qExact)
+      }
       if (querySnapshot.empty) {
         throw new Error('No account found with that username or email.')
       }
@@ -432,18 +462,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const usersRef = collection(db, 'users')
-      const q = query(usersRef, where('displayName', '==', username))
-      const querySnapshot = await getDocs(q)
-      
-      // If any results found, username is taken
-      // But exclude current user's own username
-      if (querySnapshot.empty) return true
-      
-      // Check if it's the current user's username
-      if (currentUser && querySnapshot.docs.some(doc => doc.id === currentUser.uid)) {
-        return true // Their own username is available to them
+      const lower = username.trim().toLowerCase()
+      const qLower = query(usersRef, where('displayNameLower', '==', lower), limit(1))
+      let querySnapshot = await getDocs(qLower)
+      if (querySnapshot.empty) {
+        const qExact = query(usersRef, where('displayName', '==', username.trim()), limit(1))
+        querySnapshot = await getDocs(qExact)
       }
-      
+      if (querySnapshot.empty) return true
+      if (currentUser && querySnapshot.docs.some(d => d.id === currentUser.uid)) return true
       return false
     } catch (error) {
       console.error('Error checking username:', error)
@@ -470,13 +497,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Update username
     if (!isFirebaseAvailable || !db) {
+      const displayName = capitalizeDisplayName(trimmed)
       setCurrentUser(prev => {
         if (!prev) return prev
-        const next = { ...prev, displayName: trimmed }
+        const next = { ...prev, displayName }
         persistLocalUser(next)
         return next
       })
-      // Track username in local list
       const localUsernames = localStorage.getItem('localUsernames')
       const usernames = localUsernames ? JSON.parse(localUsernames) : []
       if (!usernames.includes(trimmed.toLowerCase())) {
@@ -486,13 +513,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true }
     } else {
       try {
+        const displayName = capitalizeDisplayName(trimmed)
         setCurrentUser(prev => {
           if (!prev) return prev
-          const next = { ...prev, displayName: trimmed }
-          return next
+          return { ...prev, displayName }
         })
         const userRef = doc(db, 'users', currentUser.uid)
-        await updateDoc(userRef, { displayName: trimmed })
+        await updateDoc(userRef, { displayName, displayNameLower: displayName.toLowerCase() })
         return { success: true }
       } catch (error) {
         console.error('Error updating username:', error)
@@ -508,7 +535,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (storedGuest) {
         console.log('Restoring guest user from localStorage')
         const parsed = JSON.parse(storedGuest)
-        setCurrentUser({ ...parsed, coins: parsed.coins ?? 5000 })
+        setCurrentUser({ ...parsed, coins: parsed.coins ?? 5000, displayName: capitalizeDisplayName(parsed.displayName || '') })
       }
       setLoading(false)
       return
@@ -520,7 +547,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userDoc = await getDoc(userRef)
         if (userDoc.exists()) {
           const data = userDoc.data() as User
-          setCurrentUser({ ...data, coins: data.coins ?? 5000 })
+          setCurrentUser({ ...data, coins: data.coins ?? 5000, displayName: capitalizeDisplayName(data.displayName || '') })
         }
       } else {
         setCurrentUser(null)
@@ -555,4 +582,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   )
 }
-

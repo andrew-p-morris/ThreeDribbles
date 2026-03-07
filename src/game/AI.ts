@@ -1,5 +1,5 @@
 import { GameState, Archetype } from '../types/Game'
-import { getPosition, getDistance } from './CourtPositions'
+import { getPosition, getDistance, getOffenseAdjacentPositions } from './CourtPositions'
 import { calculateShotProbability } from './ShotCalculator'
 
 // ---- Utility helpers for stochastic choice and scoring ----
@@ -125,8 +125,9 @@ function getEasyMove(gameState: GameState, isOffense: boolean): number {
 		? gameState.player2.currentPosition 
 		: gameState.player2.currentPosition
 	
-	const position = getPosition(currentPos)
-	const validMoves = position.adjacentPositions
+	const validMoves = isOffense 
+		? getOffenseAdjacentPositions(currentPos, gameState.moveCount) 
+		: getPosition(currentPos).adjacentPositions
 	
 	const choice = validMoves[Math.floor(Math.random() * validMoves.length)]
 	rememberMove(isOffense, choice)
@@ -139,8 +140,7 @@ function getMediumMove(gameState: GameState, isOffense: boolean): number {
 		// Consider Shoot Now and dribbles; EV under best defense with archetype bias
 		const offPos = gameState.player2.currentPosition
 		const defPos = gameState.player1.currentPosition
-		const pos = getPosition(offPos)
-		const moves = [...pos.adjacentPositions]
+		const moves = getOffenseAdjacentPositions(offPos, gameState.moveCount)
 		const candidates: number[] = [-1, ...moves]
 
 		const scored = candidates.map(move => {
@@ -173,7 +173,7 @@ function getMediumMove(gameState: GameState, isOffense: boolean): number {
 		const options = [...defP.adjacentPositions, defPos]
 
 		// Predict likely offense move
-		const offAdj = getPosition(offPos).adjacentPositions
+		const offAdj = getOffenseAdjacentPositions(offPos, gameState.moveCount)
 		let predicted = offPos
 		let best = -Infinity
 		for (const om of offAdj) {
@@ -231,8 +231,7 @@ function getHardMove(gameState: GameState, isOffense: boolean): number {
 	if (isOffense) {
 		const offPos = gameState.player2.currentPosition
 		const defPos = gameState.player1.currentPosition
-		const pos = getPosition(offPos)
-		const moves = [...pos.adjacentPositions]
+		const moves = getOffenseAdjacentPositions(offPos, gameState.moveCount)
 		const candidates: number[] = [-1, ...moves]
 
 		const scored = candidates.map(move => {
@@ -258,7 +257,7 @@ function getHardMove(gameState: GameState, isOffense: boolean): number {
 		const defP = getPosition(defPos)
 		const options = [...defP.adjacentPositions, defPos]
 
-		const offAdj = getPosition(offPos).adjacentPositions
+		const offAdj = getOffenseAdjacentPositions(offPos, gameState.moveCount)
 		let predicted = offPos
 		let best = -Infinity
 		for (const om of offAdj) {

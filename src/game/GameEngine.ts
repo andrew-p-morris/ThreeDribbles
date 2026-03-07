@@ -1,6 +1,6 @@
 import { GameState, ShotResult, MoveHistory } from '../types/Game'
 import { attemptShot } from './ShotCalculator'
-import { isAdjacent } from './CourtPositions'
+import { isAdjacent, getOffenseAdjacentPositions } from './CourtPositions'
 
 export function initializeGame(
   player1: GameState['player1'],
@@ -21,7 +21,7 @@ export function initializeGame(
     defenderStartPosition: null,
     status: 'playing',
     winner: null,
-    aiDifficulty
+    ...(aiDifficulty !== undefined && { aiDifficulty })
   }
 }
 
@@ -33,11 +33,11 @@ export function validateMove(
   if (gameState.status !== 'playing') return false
   
   if (isOffense) {
-    // Offense must move to adjacent position
+    // Offense must move to adjacent position (after first move, position 3 can also move to 8)
     const currentPos = gameState.possession === 'player1' 
       ? gameState.player1.currentPosition 
       : gameState.player2.currentPosition
-    return isAdjacent(currentPos, selectedPosition)
+    return getOffenseAdjacentPositions(currentPos, gameState.moveCount).includes(selectedPosition)
   } else {
     // Defense can move to any adjacent position from their current spot
     // OR can stay in current position to contest shot

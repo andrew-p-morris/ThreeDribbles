@@ -8,6 +8,33 @@
   min-width: 0;
 }
 
+.waiting-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.waiting-content {
+  text-align: center;
+  padding: 2rem;
+}
+
+.waiting-message {
+  font-size: 18px;
+  color: #f4e4c1;
+  margin: 0 0 1rem 0;
+}
+
+.waiting-countdown {
+  font-size: 72px;
+  font-weight: bold;
+  color: #ff6b35;
+  margin: 0;
+  text-shadow: 4px 4px 0 #000;
+}
+
 .game-layout {
   display: flex;
   flex-direction: row;
@@ -303,6 +330,10 @@
   display: none;
 }
 
+.mobile-action-button-wrapper {
+  display: none;
+}
+
 .mobile-stat-col {
   display: flex;
   flex-direction: column;
@@ -551,17 +582,27 @@
   }
 
   .stats-section {
-    display: none;
+    display: flex;
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+    margin-top: 8px;
   }
 
-  .mobile-stats {
-    display: flex;
-    justify-content: center;
-    gap: 24px;
-    padding: 8px 12px;
-    background: #3d2817;
-    border: 4px solid #000;
-    box-shadow: 8px 8px 0 #000;
+  .scoreboard {
+    flex-wrap: wrap;
+  }
+
+  .mobile-action-button-wrapper {
+    display: block;
+    padding: 12px 0 0 0;
+  }
+
+  .mobile-action-btn {
+    width: 100%;
+    padding: 20px 24px;
+    font-size: 20px;
+    font-weight: 700;
   }
 
   .game-status {
@@ -618,6 +659,11 @@
 
   .action-controls {
     padding: 12px;
+  }
+
+  .mobile-action-btn {
+    padding: 18px 20px;
+    font-size: 18px;
   }
 
   .action-buttons {

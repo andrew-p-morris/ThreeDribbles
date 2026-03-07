@@ -12,6 +12,7 @@ type CourtProps = {
   defensePosition: number
   onPositionClick: (positionId: number) => void
   highlightedPositions: number[]
+  highlightForDefense?: boolean
   shotAnimation?: { from: { x: number, y: number }, show: boolean } | null
   ballPosition?: { x: number, y: number } | null
   player1Score: number
@@ -34,6 +35,7 @@ function Court({
   defensePosition,
   onPositionClick,
   highlightedPositions,
+  highlightForDefense = false,
   shotAnimation,
   ballPosition,
   player1Score,
@@ -292,12 +294,16 @@ function Court({
                   r={3}
                   fill={
                     isHighlighted
-                      ? 'rgba(255, 107, 53, 0.4)'
+                      ? highlightForDefense
+                        ? 'rgba(0, 100, 255, 0.4)'
+                        : 'rgba(255, 107, 53, 0.4)'
                       : 'rgba(255, 255, 255, 0.1)'
                   }
                   stroke={
                     isHighlighted
-                      ? '#ff6b35'
+                      ? highlightForDefense
+                        ? '#0066ff'
+                        : '#ff6b35'
                       : 'rgba(255, 255, 255, 0.4)'
                   }
                   strokeWidth={0.4}
@@ -469,7 +475,7 @@ function Court({
         </div>
         <div className="legend-item">
           <span className="legend-icon available">●</span>
-          <span>Available</span>
+          <span>Unavailable</span>
         </div>
       </div>
     </div>

@@ -9,9 +9,24 @@
 
 .settings-header {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.settings-header-row {
+  display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+}
+
+.settings-title {
+  font-size: 16px;
+  margin: 0;
+  color: #ff6b35;
+  text-shadow: 2px 2px 0 #000;
+  text-align: center;
+  width: 100%;
 }
 
 .header-right {
@@ -26,17 +41,27 @@
   color: #FFD700;
 }
 
-.settings-header .username {
-  font-weight: 600;
-  font-size: 16px;
-  color: #f4e4c1;
+.settings-header .btn-back {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
-.settings-header h1 {
-  font-size: 24px;
-  margin: 0;
-  color: #ff6b35;
-  text-shadow: 4px 4px 0 #000;
+.settings-header .btn-back:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .btn-unlock {
@@ -285,21 +310,11 @@
     gap: 12px;
   }
 
-  .settings-header h1 {
-    font-size: 18px;
-  }
-
   .header-right {
-    flex: 1 1 100%;
-    min-width: 0;
-    order: 3;
-    justify-content: flex-start;
     gap: 10px;
-    flex-wrap: wrap;
   }
 
-  .coins-display,
-  .settings-header .username {
+  .coins-display {
     font-size: 12px;
   }
 
@@ -693,6 +708,11 @@
   font-size: 14px;
 }
 
+.username-changes-remaining {
+  font-size: 11px;
+  color: rgba(244, 228, 193, 0.7);
+}
+
 .username-input-group {
   display: flex;
   gap: 12px;
@@ -819,12 +839,12 @@
   align-items: center;
   padding: 8px;
   gap: 6px;
+  cursor: pointer;
 }
 
 .shop-card .cosmetic-preview-btn {
   background: none;
   border: none;
-  cursor: pointer;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -833,6 +853,7 @@
   width: 100%;
   color: inherit;
   font: inherit;
+  cursor: inherit;
 }
 
 .shop-card .cosmetic-preview-btn:hover {
@@ -934,6 +955,13 @@
   color: rgba(244, 228, 193, 0.8);
 }
 
+.coin-package-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ff6b35;
+  margin-top: 4px;
+}
+
 /* Coin purchase modal */
 .modal-overlay {
   position: fixed;
@@ -979,6 +1007,18 @@
 .modal-footer {
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.court-preview-modal .court-preview-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.court-preview-modal .court-preview {
+  max-width: 320px;
 }
 
 .shop-description {

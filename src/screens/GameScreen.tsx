@@ -1,18 +1,21 @@
 import { useEffect, useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useSettings } from '../contexts/SettingsContext'
+import { subscribeToGame, setWaitingReady } from '../firebase/online'
 import Court from '../components/Court'
-import { COURT_POSITIONS, getPosition } from '../game/CourtPositions'
+import { COURT_POSITIONS, getPosition, getOffenseAdjacentPositions } from '../game/CourtPositions'
 import './GameScreen.css'
 import { audioManager } from '../audio/AudioManager'
 
 function GameScreen() {
-  const { gameState, selectPosition, resetGame, restartCurrentGame, lastShotResult, showShotBanner, showBlockPopup, completeShotAnimation } = useGame()
+  const { gameState, selectPosition, resetGame, quitOnlineGame, restartCurrentGame, lastShotResult, showShotBanner, showBlockPopup, completeShotAnimation, startOnlineGameFromFirestore, onlineGameLoading, onlineMyRole } = useGame()
   const { currentUser } = useAuth()
   const { soundMuted, volume, setSoundMuted } = useSettings()
   const navigate = useNavigate()
+  const location = useLocation()
+  const onlineGameStartedRef = useRef(false)
   const [message, setMessage] = useState('')
   const [shotAnimation, setShotAnimation] = useState<{ from: { x: number, y: number }, show: boolean } | null>(null)
   const lastAnimatedShotRef = useRef<{ shotBy: 'player1' | 'player2', shotPosition: number, timestamp: number } | null>(null)
@@ -22,6 +25,11 @@ function GameScreen() {
   const [showBlockIndicator, setShowBlockIndicator] = useState(false)
   const [showPauseMenu, setShowPauseMenu] = useState(false)
   const [showRestartConfirm, setShowRestartConfirm] = useState(false)
+  const [waitingCountdown, setWaitingCountdown] = useState<number | null>(null)
+  const [waitingComplete, setWaitingComplete] = useState(false)
+
+  const routeState = location.state as { gameId?: string; myRole?: 'player1' | 'player2'; waiting?: boolean } | null
+  const isWaitingScreen = Boolean(routeState?.waiting && routeState?.gameId && routeState?.myRole && !waitingComplete)
 
   const coinsEarned =
     gameState?.status === 'finished' && gameState.mode === 'ai' && gameState.aiDifficulty
@@ -37,8 +45,71 @@ function GameScreen() {
     audioManager.setVolume(volume)
   }, [volume])
 
+  // Start online game when navigated with gameId + myRole (skip when in waiting screen; we start after countdown)
+  useEffect(() => {
+    if (routeState?.waiting) return
+    const state = routeState
+    if (state?.gameId && state?.myRole && !onlineGameStartedRef.current) {
+      onlineGameStartedRef.current = true
+      startOnlineGameFromFirestore(state.gameId, state.myRole)
+    }
+  }, [location.state, routeState?.waiting, startOnlineGameFromFirestore])
+
+  // Waiting screen: subscribe to game doc, player2 signals ready, both count down from 5.
+  // Use server timestamp + offset so both clients see the same countdown regardless of device clock skew.
+  const gameStartsAtRef = useRef<number | null>(null)
+  const serverTimeOffsetRef = useRef<number>(0)
+  useEffect(() => {
+    if (!isWaitingScreen || !routeState?.gameId || !routeState?.myRole) return
+    const gameId = routeState.gameId
+    const myRole = routeState.myRole
+    gameStartsAtRef.current = null
+    serverTimeOffsetRef.current = 0
+    setWaitingCountdown(null)
+    if (myRole === 'player2') {
+      setWaitingReady(gameId).catch(() => {})
+    }
+    const unsub = subscribeToGame(gameId, (data) => {
+      // Prefer player2ReadyAt (server timestamp) for consistent countdown across devices
+      const readyAt = (data as { player2ReadyAt?: { toMillis: () => number } | number }).player2ReadyAt
+      const readyAtMs = typeof readyAt === 'number' ? readyAt : readyAt?.toMillis?.()
+      if (readyAtMs != null) {
+        const serverTimeAtWrite = readyAtMs
+        gameStartsAtRef.current = serverTimeAtWrite + 5000
+        serverTimeOffsetRef.current = serverTimeAtWrite - Date.now()
+      } else if (data.gameStartsAt) {
+        // Legacy: gameStartsAt was written directly (client clock)
+        gameStartsAtRef.current = data.gameStartsAt
+        serverTimeOffsetRef.current = 0
+      }
+    })
+    const interval = setInterval(() => {
+      const startsAt = gameStartsAtRef.current
+      if (!startsAt) return
+      const serverTimeNow = Date.now() + serverTimeOffsetRef.current
+      const remaining = Math.ceil((startsAt - serverTimeNow) / 1000)
+      if (remaining <= 0) {
+        gameStartsAtRef.current = null
+        setWaitingCountdown(0)
+        onlineGameStartedRef.current = true
+        startOnlineGameFromFirestore(gameId, myRole)
+        setWaitingComplete(true)
+      } else {
+        setWaitingCountdown(remaining)
+      }
+    }, 200)
+    return () => {
+      unsub()
+      clearInterval(interval)
+      gameStartsAtRef.current = null
+    }
+  }, [isWaitingScreen, routeState?.gameId, routeState?.myRole, startOnlineGameFromFirestore])
+
   useEffect(() => {
     if (!gameState) {
+      if (onlineGameLoading) return
+      if (isWaitingScreen) return
+      if (waitingComplete) return
       console.log('No game state, redirecting to home')
       navigate('/home')
       return
@@ -55,12 +126,19 @@ function GameScreen() {
         // AI's offensive turn - no message (happens automatically)
         return
       }
+      if (gameState.mode === 'online') {
+        const isMyOffense = (gameState.possession === 'player1' && onlineMyRole === 'player1') || (gameState.possession === 'player2' && onlineMyRole === 'player2')
+        if (isMyOffense) {
+          const currentPlayer = gameState.possession === 'player1' ? gameState.player1 : gameState.player2
+          setMessage(`${currentPlayer.username}'s turn`)
+        } else {
+          const currentPlayer = gameState.possession === 'player1' ? gameState.player1 : gameState.player2
+          setMessage(`${currentPlayer.username} is choosing their move...`)
+        }
+        return
+      }
       const currentPlayer = gameState.possession === 'player1' ? gameState.player1 : gameState.player2
-      // Calculate dribble number using actualDribbles (which doesn't include block penalties)
-      // actualDribbles = number of actual dribbles made
-      // Next dribble number = actualDribbles + 1, capped at 3
-      const dribbleNumber = Math.min(gameState.actualDribbles + 1, 3)
-      setMessage(`${currentPlayer.username} Turn - Select dribble move (${dribbleNumber}/3)`)
+      setMessage(`${currentPlayer.username}'s turn`)
     } else if (gameState.currentTurn === 'defense') {
       // The defender is always the player who does NOT have possession
       if (gameState.mode === 'ai') {
@@ -75,9 +153,13 @@ function GameScreen() {
       } else if (gameState.mode === 'local') {
         const defensivePlayer = gameState.possession === 'player1' ? gameState.player2 : gameState.player1
         setMessage(`${defensivePlayer.username} Turn - Select defensive position`)
+      } else if (gameState.mode === 'online') {
+        const defensivePlayer = gameState.possession === 'player1' ? gameState.player2 : gameState.player1
+        const isMyDefense = (gameState.possession === 'player1' && onlineMyRole === 'player2') || (gameState.possession === 'player2' && onlineMyRole === 'player1')
+        setMessage(isMyDefense ? `${defensivePlayer.username} (You) - Select defensive position` : `${defensivePlayer.username} is choosing defense...`)
       }
     }
-  }, [gameState?.status, gameState?.currentTurn, gameState?.moveCount, gameState?.possession, gameState?.offenseSelection, gameState?.mode, lastShotResult, navigate])
+  }, [gameState?.status, gameState?.currentTurn, gameState?.moveCount, gameState?.possession, gameState?.offenseSelection, gameState?.mode, lastShotResult, navigate, onlineGameLoading, onlineMyRole])
 
   function handlePositionClick(positionId: number) {
     if (!gameState || gameState.status !== 'playing') return
@@ -234,8 +316,13 @@ function GameScreen() {
   }, [lastShotResult, gameState])
 
   function handleQuit() {
-    resetGame()
-    navigate('/home')
+    onlineGameStartedRef.current = false
+    if (gameState?.mode === 'online') {
+      quitOnlineGame().then(() => navigate('/home'))
+    } else {
+      resetGame()
+      navigate('/home')
+    }
   }
 
   function handleRematch() {
@@ -264,12 +351,61 @@ function GameScreen() {
     setShowRestartConfirm(false)
   }
 
+  // Waiting screen (challenge accepted; 5s countdown then start)
+  if (isWaitingScreen) {
+    return (
+      <div className="screen game-screen">
+        <div className="game-container waiting-container">
+          <header className="game-header">
+            <button onClick={() => { resetGame(); navigate('/home') }} className="btn-quit">
+              ← Back
+            </button>
+          </header>
+          <div className="waiting-content">
+            {waitingCountdown === null ? (
+              <p className="waiting-message">
+                {routeState?.myRole === 'player1' ? 'Waiting for opponent to accept...' : 'Joining game...'}
+              </p>
+            ) : waitingCountdown > 0 ? (
+              <>
+                <p className="waiting-message">Get ready! Starting in</p>
+                <p className="waiting-countdown">{waitingCountdown}</p>
+              </>
+            ) : (
+              <p className="waiting-message">Starting game...</p>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
-  if (!gameState) return null
+  if (!gameState) {
+    if (onlineGameLoading || waitingComplete) {
+      return (
+        <div className="screen game-screen">
+          <div className="game-container">
+            <p className="status-message">Loading game...</p>
+          </div>
+        </div>
+      )
+    }
+    return null
+  }
 
   const isPlayer1Turn = gameState.possession === 'player1'
   const offensivePlayer = isPlayer1Turn ? gameState.player1 : gameState.player2
   const defensivePlayer = isPlayer1Turn ? gameState.player2 : gameState.player1
+
+  // Use the local player's role (defense vs offense) for highlight color so it stays
+  // blue while defending (including when waiting for opponent) and orange while on offense.
+  const isLocalPlayerDefender =
+    gameState.mode === 'online' && onlineMyRole
+      ? (gameState.possession === 'player1' && onlineMyRole === 'player2') ||
+        (gameState.possession === 'player2' && onlineMyRole === 'player1')
+      : gameState.mode === 'ai'
+        ? gameState.possession === 'player2'
+        : gameState.currentTurn === 'defense'
 
   return (
     <div className="screen game-screen">
@@ -351,9 +487,10 @@ function GameScreen() {
               onPositionClick={handlePositionClick}
               highlightedPositions={
                 gameState.currentTurn === 'offense'
-                  ? [...getPosition(offensivePlayer.currentPosition).adjacentPositions, offensivePlayer.currentPosition]
+                  ? [...getOffenseAdjacentPositions(offensivePlayer.currentPosition, gameState.moveCount), offensivePlayer.currentPosition]
                   : [...getPosition(defensivePlayer.currentPosition).adjacentPositions, defensivePlayer.currentPosition]
               }
+              highlightForDefense={isLocalPlayerDefender}
               shotAnimation={shotAnimation}
               ballPosition={ballPosition}
               player1Score={gameState.player1.score}
@@ -365,8 +502,8 @@ function GameScreen() {
               player1Archetype={gameState.player1.archetype}
               player2Archetype={gameState.player2.archetype}
               showBlockIndicator={showBlockIndicator}
-              player1Cosmetics={currentUser?.equippedCosmetics}
-              player2Cosmetics={undefined}
+              player1Cosmetics={gameState.mode === 'online' ? gameState.player1.equippedCosmetics : currentUser?.equippedCosmetics}
+              player2Cosmetics={gameState.mode === 'online' ? gameState.player2.equippedCosmetics : undefined}
             />
           </div>
 
@@ -375,40 +512,44 @@ function GameScreen() {
               <div className="status-message">{message}</div>
             </div>
 
-            <div className="mobile-stats">
-              <div className="mobile-stat-col">
-                <span className="mobile-stat-label">P1</span>
-                <span className="mobile-stat-row">
-                  FG: {gameState.player1.shotsAttempted > 0 
-                    ? `${Math.round((gameState.player1.shotsMade / gameState.player1.shotsAttempted) * 100)}%`
-                    : '0%'}
-                </span>
-                <span className="mobile-stat-row">
-                  3PT: {gameState.player1.threesAttempted > 0
-                    ? `${Math.round((gameState.player1.threesMade / gameState.player1.threesAttempted) * 100)}%`
-                    : '0%'}
-                </span>
-              </div>
-              <div className="mobile-stat-col">
-                <span className="mobile-stat-label">P2</span>
-                <span className="mobile-stat-row">
-                  FG: {gameState.player2.shotsAttempted > 0 
-                    ? `${Math.round((gameState.player2.shotsMade / gameState.player2.shotsAttempted) * 100)}%`
-                    : '0%'}
-                </span>
-                <span className="mobile-stat-row">
-                  3PT: {gameState.player2.threesAttempted > 0
-                    ? `${Math.round((gameState.player2.threesMade / gameState.player2.threesAttempted) * 100)}%`
-                    : '0%'}
-                </span>
-              </div>
-            </div>
+            {/* Mobile: Shoot/Contest button (replaces stats; stats moved to scoreboard) */}
+            {gameState.mode === 'local' ||
+            (gameState.mode === 'ai' && ((isPlayer1Turn && gameState.currentTurn === 'offense') || (!isPlayer1Turn && gameState.currentTurn === 'defense'))) ||
+            (gameState.mode === 'online' && onlineMyRole && (
+              (gameState.currentTurn === 'offense' && ((gameState.possession === 'player1' && onlineMyRole === 'player1') || (gameState.possession === 'player2' && onlineMyRole === 'player2'))) ||
+              (gameState.currentTurn === 'defense' && ((gameState.possession === 'player1' && onlineMyRole === 'player2') || (gameState.possession === 'player2' && onlineMyRole === 'player1')))
+            )) ? (
+              (() => {
+                const shouldHideDefense = lastShotResult !== null && gameState.currentTurn === 'defense'
+                if (shouldHideDefense) return null
+                return (
+                  <div className="mobile-action-button-wrapper">
+                    <button
+                      className={`btn mobile-action-btn ${gameState.currentTurn === 'offense' ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() =>
+                        gameState.currentTurn === 'offense'
+                          ? handlePositionClick(-1)
+                          : handlePositionClick(defensivePlayer.currentPosition)
+                      }
+                    >
+                      {gameState.currentTurn === 'offense' ? '🏀 Shoot' : '🛡️ Contest'}
+                    </button>
+                  </div>
+                )
+              })()
+            ) : null}
 
             {/* Show controls for local mode always, for AI only on player's turn */}
             {/* Hide defense controls only when shot animation is playing */}
             {/* In AI mode, only show controls when it's the player's turn to act (not AI's) */}
             {/* Player acts when: (possession === 'player1' && currentTurn === 'offense') OR (possession === 'player2' && currentTurn === 'defense') */}
-            {gameState.mode === 'local' || (gameState.mode === 'ai' && ((isPlayer1Turn && gameState.currentTurn === 'offense') || (!isPlayer1Turn && gameState.currentTurn === 'defense'))) ? (
+            {/* Online: show only when it's our turn (onlineMyRole matches the acting player) */}
+            {gameState.mode === 'local' ||
+            (gameState.mode === 'ai' && ((isPlayer1Turn && gameState.currentTurn === 'offense') || (!isPlayer1Turn && gameState.currentTurn === 'defense'))) ||
+            (gameState.mode === 'online' && onlineMyRole && (
+              (gameState.currentTurn === 'offense' && ((gameState.possession === 'player1' && onlineMyRole === 'player1') || (gameState.possession === 'player2' && onlineMyRole === 'player2'))) ||
+              (gameState.currentTurn === 'defense' && ((gameState.possession === 'player1' && onlineMyRole === 'player2') || (gameState.possession === 'player2' && onlineMyRole === 'player1')))
+            )) ? (
               (() => {
                 // Hide defense controls only when shot animation is playing (lastShotResult is set)
                 const shouldHideDefense = lastShotResult !== null && gameState.currentTurn === 'defense'
@@ -423,7 +564,7 @@ function GameScreen() {
                 <div className="action-buttons-vertical">
                   {gameState.currentTurn === 'offense' ? (
                     <>
-                      {getPosition(offensivePlayer.currentPosition).adjacentPositions.map(posId => (
+                      {getOffenseAdjacentPositions(offensivePlayer.currentPosition, gameState.moveCount).map(posId => (
                         <button
                           key={posId}
                           className="btn btn-secondary action-btn"
@@ -535,12 +676,25 @@ function GameScreen() {
                 <div className="coins-earned">Coins earned: +{coinsEarned}</div>
               )}
               <div className="game-over-buttons">
-                <button onClick={handleRematch} className="btn btn-primary">
-                  {gameState.mode === 'online' ? 'Rematch' : 'New Game'}
-                </button>
-                <button onClick={handleQuit} className="btn btn-secondary">
-                  {gameState.mode === 'online' ? 'Find New Opponent' : 'Home'}
-                </button>
+                {gameState.mode === 'online' ? (
+                  <>
+                    <button onClick={() => navigate('/online')} className="btn btn-secondary">
+                      Return to Lobby
+                    </button>
+                    <button onClick={() => navigate('/online', { state: { startQuickMatch: true } })} className="btn btn-primary">
+                      Find New Opponent
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={handleRematch} className="btn btn-primary">
+                      New Game
+                    </button>
+                    <button onClick={handleQuit} className="btn btn-secondary">
+                      Home
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

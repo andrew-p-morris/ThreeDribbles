@@ -5,6 +5,8 @@ import { useGame } from '../contexts/GameContext'
 import { Archetype } from '../types/Game'
 import { CHARACTERS } from '../types/Character'
 import { PixelCharacter } from '../components/PixelCharacter'
+import { listenPendingGame } from '../firebase/online'
+import type { PendingGamePayload } from '../firebase/online'
 import './HomeScreen.css'
 
 // Star ratings (out of 5) for archetype cards: 3PT, Mid, Paint
@@ -66,6 +68,22 @@ function HomeScreen() {
   const [player1Archetype, setPlayer1Archetype] = useState<Archetype | null>(null)
   const [aiArchetype, setAiArchetype] = useState<Archetype | null>(null)
   const [flippedCard, setFlippedCard] = useState<string | null>(null) // Track which card is flipped
+  const [pendingChallenge, setPendingChallenge] = useState<{ gameId: string; fromDisplayName: string } | null>(null)
+
+  // Listen for friend challenges (show notification under Online card)
+  useEffect(() => {
+    if (!currentUser?.uid || currentUser?.isGuest) return
+    return listenPendingGame(currentUser.uid, (data: PendingGamePayload | null) => {
+      if (!data?.fromUid) {
+        setPendingChallenge(null)
+        return
+      }
+      setPendingChallenge({
+        gameId: data.gameId,
+        fromDisplayName: data.fromDisplayName || 'Someone'
+      })
+    })
+  }, [currentUser?.uid, currentUser?.isGuest])
 
   function handlePlayClick() {
     setShowModeSelect(true)
@@ -157,11 +175,8 @@ function HomeScreen() {
     }
   }
 
-  function handleProfileClick() {
-    navigate('/profile')
-  }
-
   async function handleSignOut() {
+    if (!window.confirm('Are you sure?')) return
     await signOut()
     navigate('/')
   }
@@ -178,25 +193,21 @@ function HomeScreen() {
                 equippedCosmetics={currentUser?.equippedCosmetics ?? {}}
                 hasBasketball={true}
               />
+              <span className="username">{currentUser?.displayName}</span>
             </div>
-            <h1 className="game-title">🏀 THREE DRIBBLES</h1>
+            <h1 className="game-title">THREE DRIBBLES</h1>
           </div>
           <div className="header-controls">
-            <div className="user-info">
-              <span className="username">{currentUser?.displayName}</span>
-              {!currentUser?.isGuest && (
-                <button onClick={handleProfileClick} className="btn-icon btn-header-text">
-                  Profile
-                </button>
-              )}
-              <div className="home-settings-stack">
-                <button onClick={handleSignOut} className="btn-icon btn-header-text">
-                  Home
-                </button>
+            <div className="home-settings-stack">
                 <button onClick={() => navigate('/settings')} className="btn-icon btn-header-text">
                   Settings
                 </button>
-              </div>
+                <button
+                  onClick={currentUser?.isGuest ? () => navigate(-1) : handleSignOut}
+                  className="btn-icon btn-header-text"
+                >
+                  {currentUser?.isGuest ? 'Back' : 'Sign Out'}
+                </button>
             </div>
           </div>
         </header>
@@ -242,7 +253,7 @@ function HomeScreen() {
               <div onClick={() => handleModeSelect('ai')} className="card mode-card">
                 <div className="mode-icon">🎯</div>
                 <h3>Practice Mode</h3>
-                <p>Train against AI</p>
+                <p>Train against CPU</p>
                 <div className="difficulty-selector" onClick={(e) => e.stopPropagation()}>
                   <select
                     value={selectedDifficulty}
@@ -260,6 +271,7 @@ function HomeScreen() {
                 <div className="mode-icon">🌐</div>
                 <h3>Online</h3>
                 <p>Find opponents worldwide</p>
+                {pendingChallenge && <span className="challenge-badge">!</span>}
               </button>
             </div>
           </div>
@@ -267,7 +279,17 @@ function HomeScreen() {
 
         {showArchetypeSelect && (
           <div className="archetype-select">
-            <h2>{selectedMode === 'local' ? 'Player 1 - Choose Your Archetype' : 'Choose Your Archetype'}</h2>
+            <div className="archetype-select-header">
+              <button
+                type="button"
+                className="archetype-back-btn"
+                onClick={() => { setShowArchetypeSelect(false); setShowModeSelect(true) }}
+                aria-label="Back to mode select"
+              >
+                ←
+              </button>
+              <h2>{selectedMode === 'local' ? 'Player 1 - Choose Your Archetype' : 'Choose Your Archetype'}</h2>
+            </div>
             <div className="archetype-options">
               <div 
                 className={`archetype-card-wrapper ${flippedCard === 'midrange' ? 'flipped' : ''}`}
@@ -411,7 +433,17 @@ function HomeScreen() {
 
         {showPlayer2ArchetypeSelect && (
           <div className="archetype-select">
-            <h2>Player 2 - Choose Your Archetype</h2>
+            <div className="archetype-select-header">
+              <button
+                type="button"
+                className="archetype-back-btn"
+                onClick={() => { setShowPlayer2ArchetypeSelect(false); setShowArchetypeSelect(true) }}
+                aria-label="Back to Player 1 archetype"
+              >
+                ←
+              </button>
+              <h2>Player 2 - Choose Your Archetype</h2>
+            </div>
             <div className="archetype-options">
               <div 
                 className={`archetype-card-wrapper ${flippedCard === 'midrange-p2' ? 'flipped' : ''}`}
@@ -555,7 +587,17 @@ function HomeScreen() {
 
         {showAIArchetypeSelect && (
           <div className="archetype-select">
-            <h2>Choose AI Archetype</h2>
+            <div className="archetype-select-header">
+              <button
+                type="button"
+                className="archetype-back-btn"
+                onClick={() => { setShowAIArchetypeSelect(false); setShowModeSelect(true) }}
+                aria-label="Back to mode select"
+              >
+                ←
+              </button>
+              <h2>Choose CPU Archetype</h2>
+            </div>
             <div className="archetype-options">
               <div 
                 className={`archetype-card-wrapper ${flippedCard === 'midrange-ai' ? 'flipped' : ''}`}

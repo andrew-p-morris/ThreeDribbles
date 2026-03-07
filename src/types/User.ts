@@ -11,6 +11,8 @@ export type User = {
   equippedCosmetics?: EquippedCosmetics
   unlockedCosmetics?: string[]
   coins?: number
+  /** Number of username changes used (max 2 per account) */
+  usernameChangesUsed?: number
 }
 
 export type ModeStats = {
@@ -36,5 +38,6 @@ export type UserStats = {
   practice_medium?: ModeStats
   practice_hard?: ModeStats
   online?: ModeStats
+  online_friends?: ModeStats
 }
 

@@ -13,6 +13,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 32px;
+  position: relative;
 }
 
 .home-title-row {
@@ -23,12 +24,24 @@
 
 .home-header-character {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  gap: 6px;
+}
+
+.home-header-character .username {
+  font-weight: 600;
+  font-size: 14px;
+  color: white;
+  margin-left: -25px;
 }
 
 .home-header .game-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(calc(-50% + 10px));
   font-size: 32px;
   margin: 0;
   line-height: 1.4;
@@ -240,6 +253,43 @@
   font-size: 28px;
 }
 
+.archetype-select-header {
+  display: flex;
+  align-items: center;
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.archetype-select-header h2 {
+  flex: 1;
+  margin-bottom: 0;
+  text-align: center;
+}
+
+.archetype-back-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.archetype-back-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
 .mode-options,
 .archetype-options {
   display: grid;
@@ -260,6 +310,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  position: relative;
 }
 
 .mode-card:not(:disabled):hover,
@@ -293,6 +344,23 @@
   margin: 0;
 }
 
+.challenge-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e53935;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 50%;
+  line-height: 1;
+}
+
 .archetype-strength {
   color: #ff6b35;
 }
@@ -317,7 +385,7 @@
 
 .archetype-card-wrapper.flipped {
   z-index: 10;
-  min-height: 420px;
+  min-height: 500px;
 }
 
 .archetype-card-inner {
@@ -346,6 +414,8 @@
 
 .archetype-card-back {
   transform: rotateY(180deg);
+  padding-bottom: 24px;
+  overflow-y: auto;
 }
 
 .flip-button {
@@ -464,7 +534,7 @@
 }
 
 .mode-card .difficulty-selector {
-  margin-top: 10px;
+  margin-top: 18px;
 }
 
 .mode-card .difficulty-selector select {
@@ -502,24 +572,60 @@
 
 @media (max-width: 768px) {
   .home-header .game-title {
-    font-size: 24px;
+    font-size: 26px;
+  }
+
+  .home-header-character {
+    transform: scale(1.08);
+    transform-origin: center center;
+  }
+
+  .home-header-character .username {
+    font-size: 15px;
+  }
+
+  .mode-select {
+    margin-top: 24px;
+  }
+
+  .archetype-select {
+    margin-top: 24px;
   }
 }
 
 @media (max-width: 480px) {
   .home-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 16px;
+    display: grid;
+    grid-template-rows: auto auto;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "character controls"
+      "logo logo";
+    align-items: center;
+    gap: 12px 16px;
     margin-bottom: 24px;
   }
 
   .home-title-row {
-    justify-content: center;
+    display: contents;
+  }
+
+  .home-header-character {
+    grid-area: character;
+    justify-self: start;
+    transform: scale(1.1);
+    transform-origin: left center;
+  }
+
+  .home-header .game-title {
+    grid-area: logo;
+    justify-self: center;
+    font-size: 24px;
   }
 
   .header-controls {
-    justify-content: flex-end;
+    grid-area: controls;
+    justify-self: end;
     flex-wrap: wrap;
   }
 
@@ -532,6 +638,18 @@
   .archetype-options {
     grid-template-columns: 1fr;
   }
+
+  .home-header-character .username {
+    font-size: 15px;
+  }
+
+  .mode-select {
+    margin-top: 28px;
+  }
+
+  .archetype-select {
+    margin-top: 28px;
+  }
 }
 
 @media (max-width: 390px) {
@@ -540,13 +658,21 @@
   }
 
   .home-header .game-title {
-    font-size: 18px;
+    font-size: 20px;
   }
 
   .mode-select h2,
   .archetype-select h2 {
     font-size: 18px;
     margin-bottom: 16px;
+  }
+
+  .mode-select {
+    margin-top: 32px;
+  }
+
+  .archetype-select {
+    margin-top: 32px;
   }
 
   .mode-card,
@@ -575,8 +701,12 @@
     font-size: 10px;
   }
 
+  .home-header-character .username {
+    font-size: 14px;
+  }
+
   .username {
-    font-size: 12px;
+    font-size: 15px;
   }
 }
 

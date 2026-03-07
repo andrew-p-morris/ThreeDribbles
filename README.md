@@ -8,7 +8,7 @@ Turn-based, head-to-head basketball strategy. Dribble and defend across an 11-sp
 - Dynamic shot animation with arc, distance-based timing, and result banner
 - SFX: whistle (3PT attempts), swish (made), clank (miss) with master volume and mute
 - Archetypes with distinct strengths: Mid Range, Shooter, Defender
-- Modes: Local Multiplayer, Practice vs AI (Easy/Medium/Hard), Online (menu, friends)
+- Modes: Local Multiplayer, Practice vs CPU (Easy/Medium/Hard), Online (menu, friends)
 - Cosmetics and themes with character preview and unlock-all for testing
 
 ## Core Rules
@@ -29,15 +29,15 @@ Notes:
 - These are base zone values. Final percentage applies contest/open/behind modifiers.
 - The scoreboard displays FG% and 3PT% for each player and per game mode in Stats.
 
-## AI (Practice Mode)
+## CPU (Practice Mode)
 Difficulty levels and archetype-aware behavior:
 - Easy: 40% optimal / 60% random, avoids repeating identical openings.
 - Medium: EV-based move selection with archetype bias (prefers mid/3PT/paint by archetype), variety via epsilon-greedy, mixed defensive strategies (contest, cut-off, mirror, bait).
 - Hard: Depth-1 minimax EV (simulate best defense), strong archetype bias, softmax sampling for top choices, more denial of preferred zones on defense, no-repetition heuristics.
 
-AI flow polish:
-- AI can contest on any move (including the first).
-- Status messages trimmed; UI hides while AI auto-picks in AI turns.
+CPU flow polish:
+- CPU can contest on any move (including the first).
+- Status messages trimmed; UI hides while CPU auto-picks in CPU turns.
 
 ## Shot Logic & Animation
 - The ball animates from shooter to basket with a parabolic arc.
@@ -113,7 +113,8 @@ npm run preview
 Optional Firebase setup (for auth/online):
 1) Create a Firebase project  
 2) Enable Auth, Firestore, Realtime Database  
-3) Add keys to `src/firebase/config.ts`
+3) Copy `.env.example` to `.env.local` and fill in the Firebase values from your project settings (or leave empty to run without Firebase).  
+   `.env.local` is gitignored and must not be committed.
 
 ## Project Structure
 ```
@@ -122,7 +123,7 @@ src/
 ├── components/       # UI components (Court, PixelCharacter, etc.)
 ├── contexts/         # Auth, Game, Settings contexts
 ├── firebase/         # Firebase config (optional)
-├── game/             # Core game logic (AI, Engine, Positions, Shots)
+├── game/             # Core game logic (CPU, Engine, Positions, Shots)
 ├── screens/          # Screens (Home, Game, Settings, Online, etc.)
 ├── types/            # Type definitions
 └── main.tsx          # Entry

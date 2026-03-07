@@ -111,6 +111,16 @@ export function isAdjacent(from: number, to: number): boolean {
   return position.adjacentPositions.includes(to)
 }
 
+/** Offense move options: after first move (moveCount >= 1), position 3 can also move to 8. */
+export function getOffenseAdjacentPositions(positionId: number, moveCount: number): number[] {
+  const position = getPosition(positionId)
+  const adj = [...position.adjacentPositions]
+  if (positionId === 3 && moveCount >= 1 && !adj.includes(8)) {
+    adj.push(8)
+  }
+  return adj
+}
+
 export function isLeftSide(positionId: number): boolean {
   // Positions 1, 2, 6, 7 are on the left side
   return [1, 2, 6, 7].includes(positionId)

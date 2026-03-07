@@ -5,7 +5,13 @@ import { getDatabase, Database } from 'firebase/database'
 import { firebaseConfig } from './config'
 
 // Check if Firebase is configured
-const isFirebaseConfigured = firebaseConfig.apiKey !== 'YOUR_API_KEY'
+const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.apiKey.length > 10)
+
+if (!isFirebaseConfigured && import.meta.env.DEV) {
+  console.warn(
+    '[Firebase] No valid API key. Copy .env.example to .env.local, set VITE_FIREBASE_API_KEY from Firebase Console → Project settings → Your apps, then restart the dev server.'
+  )
+}
 
 let app: FirebaseApp | null = null
 let auth: Auth | null = null
@@ -27,4 +33,3 @@ if (isFirebaseConfigured) {
 
 export { auth, db, rtdb }
 export default app
-
