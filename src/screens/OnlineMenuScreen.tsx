@@ -253,7 +253,7 @@ function OnlineMenuScreen() {
           return sendFriendRequest(user.uid, currentUser.uid, currentUser.displayName).then(() => {
             setAddFriendMessage({ type: 'success', text: `Friend request sent to ${user.displayName}!` })
             setSearchQuery('')
-            getFriendRequests(currentUser.uid).then(setRequests)
+            getFriendRequests(currentUser.uid).then(setRequests).catch(() => {})
           })
         })
       })

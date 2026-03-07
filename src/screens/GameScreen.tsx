@@ -338,7 +338,7 @@ function GameScreen() {
   function handleQuit() {
     onlineGameStartedRef.current = false
     if (gameState?.mode === 'online') {
-      quitOnlineGame().then(() => navigate('/home'))
+      quitOnlineGame().then(() => navigate('/home')).catch(() => navigate('/home'))
     } else {
       resetGame()
       navigate('/home')
