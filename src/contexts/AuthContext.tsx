@@ -11,7 +11,7 @@ import {
   EmailAuthProvider,
   User as FirebaseUser
 } from 'firebase/auth'
-import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, limit } from 'firebase/firestore'
+import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { auth, db } from '../firebase/firebase'
 import { deleteUserFirestoreData } from '../firebase/online'
 import { User, ModeStats } from '../types/User'

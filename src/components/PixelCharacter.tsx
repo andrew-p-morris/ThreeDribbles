@@ -167,7 +167,7 @@ function renderFootwear(equippedCosmetics: EquippedCosmetics | undefined, pixelS
   )
 }
 
-function renderJerseyStyle(equippedCosmetics: EquippedCosmetics | undefined, pixelSize: number, character: Character) {
+function renderJerseyStyle(equippedCosmetics: EquippedCosmetics | undefined, _pixelSize: number, _character: Character) {
   if (!equippedCosmetics?.jersey_style || equippedCosmetics.jersey_style === 'character_default') return null
   const cosmetic = getCosmeticById(equippedCosmetics.jersey_style)
   if (!cosmetic) return null

@@ -4,14 +4,12 @@ import { calculateShotProbability } from './ShotCalculator'
 
 // ---- Utility helpers for stochastic choice and scoring ----
 function argmaxRandom<T>(items: T[], scoreFn: (t: T) => number): T {
-	let best: T | null = null
 	let bestScore = -Infinity
 	let ties: T[] = []
 	for (const it of items) {
 		const s = scoreFn(it)
 		if (s > bestScore) {
 			bestScore = s
-			best = it
 			ties = [it]
 		} else if (s === bestScore) {
 			ties.push(it)

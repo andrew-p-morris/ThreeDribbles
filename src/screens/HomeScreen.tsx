@@ -78,7 +78,7 @@ function HomeScreen() {
   const [selectedMode, setSelectedMode] = useState<'local' | 'ai' | 'online' | null>(null)
   const [selectedDifficulty, setSelectedDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
   const [player1Archetype, setPlayer1Archetype] = useState<Archetype | null>(null)
-  const [aiArchetype, setAiArchetype] = useState<Archetype | null>(null)
+  const [_aiArchetype, setAiArchetype] = useState<Archetype | null>(null)
   const [flippedCard, setFlippedCard] = useState<string | null>(null) // Track which card is flipped
   const [pendingChallenge, setPendingChallenge] = useState<{ gameId: string; fromDisplayName: string } | null>(null)
 

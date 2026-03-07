@@ -38,21 +38,19 @@ function Court({
   highlightForDefense = false,
   shotAnimation,
   ballPosition,
-  player1Score,
-  player2Score,
+  player1Score: _player1Score,
+  player2Score: _player2Score,
   shotResult,
   player1CharacterId,
   player2CharacterId,
   isPlayer1Offense,
-  player1Archetype,
-  player2Archetype,
+  player1Archetype: _player1Archetype,
+  player2Archetype: _player2Archetype,
   showBlockIndicator,
   player1Cosmetics,
   player2Cosmetics,
   hidePositionMarkers = false
 }: CourtProps) {
-  const basketX = 35
-  const basketY = 72
   const basketRadius = 2.5 // Increased from 1.5
   
   const { courtTheme } = useSettings()

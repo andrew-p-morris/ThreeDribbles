@@ -21,7 +21,7 @@ const COIN_PACKAGES = [
 function SettingsScreen() {
   const navigate = useNavigate()
   const { currentUser, updateUserCharacter, updateUserCosmetics, updateUserUnlockedCosmetics, updateUserCoins, updateUsername, signOut, deleteAccount } = useAuth()
-  const { courtTheme, setCourtTheme, unlockedThemes, unlockCourtTheme, soundMuted, setSoundMuted, volume, setVolume, musicMuted, setMusicMuted, sfxMuted, setSfxMuted, musicVolume, setMusicVolume, musicUrl1, musicUrl2, setMusicUrl1, setMusicUrl2 } = useSettings()
+  const { courtTheme, setCourtTheme, unlockedThemes, unlockCourtTheme, soundMuted: _soundMuted, setSoundMuted: _setSoundMuted, volume, setVolume, musicMuted, setMusicMuted, sfxMuted, setSfxMuted, musicVolume, setMusicVolume, musicUrl1, musicUrl2, setMusicUrl1: _setMusicUrl1, setMusicUrl2: _setMusicUrl2 } = useSettings()
   
   const [newUsername, setNewUsername] = useState('')
   const [usernameError, setUsernameError] = useState('')

@@ -6,6 +6,7 @@ import { useSettings } from '../contexts/SettingsContext'
 import { subscribeToGame, setWaitingReady } from '../firebase/online'
 import { audioManager } from '../audio/AudioManager'
 import { COURT_POSITIONS, getPosition, getOffenseAdjacentPositions } from '../game/CourtPositions'
+import Court from '../components/Court'
 import './GameScreen.css'
 
 function GameScreen() {
@@ -16,6 +17,12 @@ function GameScreen() {
   const location = useLocation()
   const musicAutoOnRef = useRef(false)
   const onlineGameStartedRef = useRef(false)
+
+  const [waitingCountdown, setWaitingCountdown] = useState<number | null>(null)
+  const [waitingComplete, setWaitingComplete] = useState(false)
+
+  const routeState = location.state as { gameId?: string; myRole?: 'player1' | 'player2'; waiting?: boolean } | null
+  const isWaitingScreen = Boolean(routeState?.waiting && routeState?.gameId && routeState?.myRole && !waitingComplete)
 
   // Auto-turn music on when a game is starting (once per visit to game screen)
   useEffect(() => {
@@ -29,15 +36,10 @@ function GameScreen() {
   const lastAnimatedShotRef = useRef<{ shotBy: 'player1' | 'player2', shotPosition: number, timestamp: number } | null>(null)
   const animationInProgressRef = useRef(false)
   const [ballPosition, setBallPosition] = useState<{ x: number, y: number } | null>(null)
-  const [showShotResult, setShowShotResult] = useState(false)
+  const [_showShotResult, setShowShotResult] = useState(false)
   const [showBlockIndicator, setShowBlockIndicator] = useState(false)
   const [showPauseMenu, setShowPauseMenu] = useState(false)
   const [showRestartConfirm, setShowRestartConfirm] = useState(false)
-  const [waitingCountdown, setWaitingCountdown] = useState<number | null>(null)
-  const [waitingComplete, setWaitingComplete] = useState(false)
-
-  const routeState = location.state as { gameId?: string; myRole?: 'player1' | 'player2'; waiting?: boolean } | null
-  const isWaitingScreen = Boolean(routeState?.waiting && routeState?.gameId && routeState?.myRole && !waitingComplete)
 
   const coinsEarned =
     gameState?.status === 'finished' && gameState.mode === 'ai' && gameState.aiDifficulty
@@ -288,8 +290,6 @@ function GameScreen() {
       
       const animationDuration = lastShotResult.made ? baseDuration : baseDuration + 500 // Add 0.5s for missed shots
       const startTime = Date.now()
-      const frames = 60 // 60 frames per second
-      const frameDuration = animationDuration / frames
       
       let frame = 0
       const animate = () => {

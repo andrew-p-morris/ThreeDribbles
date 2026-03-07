@@ -3,7 +3,6 @@ import { GameState, GameMode, Archetype, MoveHistory } from '../types/Game'
 import { initializeGame, processMove, validateMove } from '../game/GameEngine'
 import { getAIMove, recordHumanStartMove, clearHumanStartMoves } from '../game/AI'
 import { checkUnlocks } from '../game/Unlocks'
-import { getPosition } from '../game/CourtPositions'
 import { CHARACTERS } from '../types/Character'
 import { useAuth } from './AuthContext'
 import { getGameDoc, subscribeToGame, updateGameDoc } from '../firebase/online'
@@ -486,9 +485,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!currentUser) return
     
     // Determine mode key for stats
-    let modeKey = endedGameState.mode
+    let modeKey: string = endedGameState.mode
     if (endedGameState.mode === 'ai' && endedGameState.aiDifficulty) {
-      modeKey = `practice_${endedGameState.aiDifficulty}` as any
+      modeKey = `practice_${endedGameState.aiDifficulty}`
     }
     if (endedGameState.mode === 'online') {
       // Default to 'challenge' when gameSource is missing (legacy games or propagation bug)
