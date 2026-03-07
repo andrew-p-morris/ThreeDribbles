@@ -80,7 +80,7 @@ function SettingsScreen() {
       const next = { ...prev }
       if (prev[item.category] === itemId) {
         delete next[item.category]
-      } else {
+    } else {
         next[item.category] = itemId
       }
       return next
@@ -94,12 +94,12 @@ function SettingsScreen() {
   }
 
   const currentCharacter = CHARACTERS.find(c => c.id === selectedCharacter) || CHARACTERS[0]
-
+  
   // Cosmetics tab: only items the user has unlocked (default-unlocked or purchased)
   const groupedCosmetics = {
     balls: COSMETIC_ITEMS.filter(item => item.category === 'balls' && (!item.locked || userUnlockedCosmetics.includes(item.id))),
     headwear: COSMETIC_ITEMS.filter(item => item.category === 'headwear' && (!item.locked || userUnlockedCosmetics.includes(item.id))),
-    uniform: COSMETIC_ITEMS.filter(item => item.category === 'jersey_style' && (!item.locked || userUnlockedCosmetics.includes(item.id))),
+    jersey: COSMETIC_ITEMS.filter(item => item.category === 'jersey_style' && (!item.locked || userUnlockedCosmetics.includes(item.id))),
     armwear: COSMETIC_ITEMS.filter(item => item.category === 'arm_items' && (!item.locked || userUnlockedCosmetics.includes(item.id))),
     socks: COSMETIC_ITEMS.filter(item => item.category === 'socks' && (!item.locked || userUnlockedCosmetics.includes(item.id))),
     footwear: COSMETIC_ITEMS.filter(item => item.category === 'footwear' && (!item.locked || userUnlockedCosmetics.includes(item.id))),
@@ -112,13 +112,13 @@ function SettingsScreen() {
   type CourtShopEntry = { id: string; name: string; emoji: string }
   type ShopItem = import('../types/Cosmetics').CosmeticItem | CourtShopEntry
   const shopItemsByCategory = (() => {
-    const categoryKeys = ['balls', 'headwear', 'uniform', 'armwear', 'socks', 'footwear', 'jewelry', 'eyewear', 'court'] as const
+    const categoryKeys = ['balls', 'headwear', 'jersey', 'armwear', 'socks', 'footwear', 'jewelry', 'eyewear', 'court'] as const
     const map: Record<string, ShopItem[]> = {}
     categoryKeys.forEach(k => { map[k] = [] })
     purchasableIds.forEach(id => {
       const item = getCosmeticById(id)
       if (!item || getCosmeticPrice(id) <= 0) return
-      const displayCat = item.category === 'jersey_style' ? 'uniform' : item.category === 'arm_items' ? 'armwear' : item.category
+      const displayCat = item.category === 'jersey_style' ? 'jersey' : item.category === 'arm_items' ? 'armwear' : item.category
       if (map[displayCat]) map[displayCat].push(item)
     })
     const courtEntries: CourtShopEntry[] = Object.entries(COURT_THEME_DATA)
@@ -131,7 +131,7 @@ function SettingsScreen() {
   const SHOP_CATEGORY_EMOJI: Record<string, string> = {
     balls: '🏀',
     headwear: '🎽',
-    uniform: '👕',
+    jersey: '👕',
     armwear: '💪',
     socks: '🧦',
     footwear: '👟',
@@ -269,16 +269,16 @@ function SettingsScreen() {
           <div className="settings-section cosmetics-section">
             <div className="cosmetics-content">
               <div className="cosmetics-main">
-                <div className="cosmetics-preview">
-                  <h2>Live Preview</h2>
-                  <div className="character-preview card">
-                    <PixelCharacter 
-                      character={currentCharacter} 
-                      size={120}
+            <div className="cosmetics-preview">
+              <h2>Live Preview</h2>
+              <div className="character-preview card">
+                <PixelCharacter 
+                  character={currentCharacter} 
+                  size={120}
                       equippedCosmetics={{ ...equippedCosmetics, ...previewOutfit }}
-                      hasBasketball={true}
-                    />
-                  </div>
+                  hasBasketball={true}
+                />
+              </div>
                   {(Object.keys(previewOutfit).length > 0) && (
                     <div className="preview-actions">
                       <button type="button" className="btn-preview-action" onClick={applyPreviewOutfit}>
@@ -289,37 +289,39 @@ function SettingsScreen() {
                       </button>
                     </div>
                   )}
-                </div>
+            </div>
 
-                {Object.entries(groupedCosmetics).map(([category, items]) => (
+            {Object.entries(groupedCosmetics).map(([category, items]) => (
                   items.length > 0 && (
-                    <div key={category} className="cosmetic-category">
-                      <h3>
-                        {category === 'jewelry' ? 'JEWELRY' : 
-                         category === 'eyewear' ? 'EYEWEAR' : 
-                         category.replace('_', ' ').toUpperCase()}
-                      </h3>
-                      <div className="cosmetic-grid">
-                        {items.map(item => {
-                          const isEquipped = equippedCosmetics[item.category as CosmeticCategory] === item.id
+              <div key={category} className="cosmetic-category">
+                <h3>
+                  {category === 'jewelry' ? 'JEWELRY' : 
+                   category === 'eyewear' ? 'EYEWEAR' : 
+                   category.replace('_', ' ').toUpperCase()}
+                </h3>
+                <div className="cosmetic-grid">
+                  {items.map(item => {
+                          const isEquipped = item.id === 'character_default'
+                            ? (!equippedCosmetics.jersey_style || equippedCosmetics.jersey_style === 'character_default')
+                            : equippedCosmetics[item.category as CosmeticCategory] === item.id
                           const isInPreview = previewOutfit[item.category as CosmeticCategory] === item.id
-                          return (
-                            <button
-                              key={item.id}
+                    return (
+                      <button
+                        key={item.id}
                               onClick={() => toggleCosmeticPreview(item.id)}
                               className={`card cosmetic-card ${isEquipped ? 'equipped' : ''} ${isInPreview ? 'in-preview' : ''}`}
-                            >
-                              <div className="cosmetic-emoji">{item.emoji}</div>
-                              <div className="cosmetic-name">{item.name}</div>
-                              {isEquipped && <div className="equipped-badge">✓</div>}
+                      >
+                        <div className="cosmetic-emoji">{item.emoji}</div>
+                        <div className="cosmetic-name">{item.name}</div>
+                        {isEquipped && <div className="equipped-badge">✓</div>}
                               {isInPreview && !isEquipped && <div className="preview-badge">Try</div>}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
                   )
-                ))}
+            ))}
               </div>
             </div>
           </div>

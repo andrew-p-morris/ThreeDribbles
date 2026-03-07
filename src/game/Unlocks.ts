@@ -3,6 +3,8 @@ import { GameState, Archetype } from '../types/Game'
 export type UnlockContext = {
   consecutiveHardWins: number
   hard11_0WinsThisSession: number
+  /** Number of different friends (challenge opponents) played, for ball unlocks */
+  friendsOpponentCount?: number
 }
 
 export type UnlockRequirement =
@@ -15,6 +17,7 @@ export type UnlockRequirement =
   | { type: 'win_hard_100_fg' }
   | { type: 'win_hard_11_0_100_fg' }
   | { type: 'gold_chain' }
+  | { type: 'play_n_different_friends'; n: number }
 
 export type UnlockEntry = { cosmeticId: string; requirement: UnlockRequirement }
 
@@ -32,13 +35,14 @@ const UNLOCK_TABLE: UnlockEntry[] = [
   // Price 50
   { cosmeticId: 'socks_striped', requirement: { type: 'beat_archetype', difficulty: 'hard', opponentArchetype: 'shooter' } },
   // Price 75
-  { cosmeticId: 'ball_red', requirement: { type: 'beat_archetype', difficulty: 'hard', opponentArchetype: 'midrange' } },
-  { cosmeticId: 'ball_blue', requirement: { type: 'beat_archetype', difficulty: 'hard', opponentArchetype: 'defender' } },
+  { cosmeticId: 'ball_red', requirement: { type: 'play_n_different_friends', n: 3 } },
+  { cosmeticId: 'ball_blue', requirement: { type: 'play_n_different_friends', n: 5 } },
   { cosmeticId: 'ball_green', requirement: { type: 'win_hard' } },
-  { cosmeticId: 'ball_gold', requirement: { type: 'win_hard_n_in_a_row', n: 2 } },
+  { cosmeticId: 'ball_gold', requirement: { type: 'play_n_different_friends', n: 10 } },
   { cosmeticId: 'high_tops_yellow', requirement: { type: 'win_hard_11_0' } },
   // Price 80
   { cosmeticId: 'cap_black', requirement: { type: 'win_hard_100_fg' } },
+  { cosmeticId: 'cap_white', requirement: { type: 'win_easy' } },
   // Price 100
   { cosmeticId: 'championship_jersey', requirement: { type: 'win_hard_n_in_a_row', n: 3 } },
   { cosmeticId: 'flame_jersey', requirement: { type: 'win_hard_11_0_twice' } },
@@ -83,6 +87,8 @@ export function getUnlockInstruction(cosmeticId: string): string {
       return 'Win 11–0 on Practice (Hard) with 100% FG (make every shot).'
     case 'gold_chain':
       return 'Win 11–0 on Practice (Hard) with 100% FG (make every shot).'
+    case 'play_n_different_friends':
+      return `Play against ${r.n} different friends.`
     default:
       return 'Complete challenges to unlock.'
   }
@@ -123,6 +129,8 @@ function requirementSatisfied(
     case 'gold_chain':
       return modeOk && difficulty === 'hard' && !!won && player.score === 11 && opponent.score === 0 &&
         player.shotsAttempted > 0 && player.shotsMade === player.shotsAttempted
+    case 'play_n_different_friends':
+      return (context?.friendsOpponentCount ?? 0) >= requirement.n
     default:
       return false
   }
@@ -168,6 +176,7 @@ export const COSMETIC_PRICES: Record<string, number> = {
   ball_green: 75,
   retro_sneakers_blue: 150,
   cap_black: 80,
+  cap_white: 85,
   arm_sleeve_black: 40,
   socks_blue: 25,
   arm_sleeve_white: 40,

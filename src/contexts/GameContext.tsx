@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react'
 import { GameState, GameMode, Archetype, MoveHistory } from '../types/Game'
 import { initializeGame, processMove, validateMove } from '../game/GameEngine'
-import { getAIMove } from '../game/AI'
+import { getAIMove, recordHumanStartMove, clearHumanStartMoves } from '../game/AI'
 import { checkUnlocks } from '../game/Unlocks'
 import { getPosition } from '../game/CourtPositions'
 import { CHARACTERS } from '../types/Character'
@@ -37,7 +37,7 @@ export function useGame() {
 }
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  const { currentUser, updateUserStats, updateUserUnlockedCosmetics, updateUserCoins } = useAuth()
+  const { currentUser, updateUserStats, updateUserUnlockedCosmetics, updateUserCoins, updateUserChallengeOpponents } = useAuth()
   const [gameState, setGameState] = useState<GameState | null>(null)
   const gameStateRef = useRef<GameState | null>(null)
   
@@ -107,6 +107,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const newGame = initializeGame(player1, player2, mode, difficulty)
     if (mode !== 'ai' || difficulty !== 'hard') {
       consecutiveHardWinsRef.current = 0
+    }
+    if (mode === 'ai' && difficulty === 'hard') {
+      clearHumanStartMoves()
     }
     updateGameState(newGame)
     setMoveHistory([])
@@ -266,7 +269,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const currentOffensePos = isPlayer1Offense ? currentState.player1.currentPosition : currentState.player2.currentPosition
     // If offenseMove is the same as current position, it's a "Shoot Now" forced shot
     const forceShot = offenseMove === currentOffensePos
-    
+
+    // Record human's first move (3 → 2 or 4) for Hard AI adaptation
+    if (currentState.mode === 'ai' && currentState.aiDifficulty === 'hard' && isPlayer1Offense && currentState.moveCount === 0 && currentOffensePos === 3 && (offenseMove === 2 || offenseMove === 4)) {
+      recordHumanStartMove(offenseMove)
+    }
+
     // Process the move
     const { newState, shotResult, moveHistory: newMoveHistory } = processMove(
       currentState, 
@@ -491,6 +499,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const isPlayer1 = endedGameState.player1.uid === currentUser.uid
     const playerStats = isPlayer1 ? endedGameState.player1 : endedGameState.player2
     const won = endedGameState.winner === (isPlayer1 ? endedGameState.player1.username : endedGameState.player2.username)
+
+    // Record challenge opponent for "play against N different friends" ball unlocks
+    if (endedGameState.mode === 'online' && endedGameState.gameSource === 'challenge') {
+      const opponentUid = isPlayer1 ? endedGameState.player2.uid : endedGameState.player1.uid
+      updateUserChallengeOpponents(opponentUid)
+    }
     
     // Update session counters for Practice Hard (before unlock check)
     const isPracticeHard = endedGameState.mode === 'ai' && endedGameState.aiDifficulty === 'hard'
@@ -515,9 +529,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     )
 
     const currentUnlocked = currentUser.unlockedCosmetics || []
+    const baseCount = currentUser.challengeOpponentUids?.length ?? 0
+    const isChallenge = endedGameState.mode === 'online' && endedGameState.gameSource === 'challenge'
+    const opponentUidForCount = isChallenge ? (isPlayer1 ? endedGameState.player2.uid : endedGameState.player1.uid) : ''
+    const alreadyInList = opponentUidForCount ? (currentUser.challengeOpponentUids?.includes(opponentUidForCount) ?? false) : false
+    const friendsOpponentCount = baseCount + (isChallenge && !alreadyInList ? 1 : 0)
     const unlockContext = {
       consecutiveHardWins: consecutiveHardWinsRef.current,
-      hard11_0WinsThisSession: hard11_0WinsThisSessionRef.current
+      hard11_0WinsThisSession: hard11_0WinsThisSessionRef.current,
+      friendsOpponentCount
     }
     const newlyUnlocked = checkUnlocks(endedGameState, currentUnlocked, unlockContext)
     if (newlyUnlocked.length > 0) {
@@ -610,6 +630,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     const newGame = initializeGame(freshPlayer1, freshPlayer2, mode, aiDifficulty)
     
+    if (gameState.mode === 'ai' && gameState.aiDifficulty === 'hard') {
+      clearHumanStartMoves()
+    }
     // Alternate possession on rematch - if player1 had it last, give it to player2
     if (possession === 'player1') {
       newGame.possession = 'player2'

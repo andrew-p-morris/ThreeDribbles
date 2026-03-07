@@ -58,6 +58,14 @@ export const COSMETIC_ITEMS: CosmeticItem[] = [
     locked: true
   },
   {
+    id: 'cap_white',
+    name: 'White Cap',
+    category: 'headwear',
+    emoji: '🧢',
+    colors: { primary: '#ffffff' },
+    locked: true
+  },
+  {
     id: 'headband_blue',
     name: 'Blue Headband',
     category: 'headwear',
@@ -228,7 +236,15 @@ export const COSMETIC_ITEMS: CosmeticItem[] = [
     locked: true
   },
   
-  // Jersey Styles
+  // Jersey Styles - character_default is always available (no custom jersey)
+  {
+    id: 'character_default',
+    name: 'Character default',
+    category: 'jersey_style',
+    emoji: '👕',
+    colors: { primary: '#888888', secondary: '#666666' },
+    locked: false
+  },
   {
     id: 'jersey_classic',
     name: 'Blue Jersey',

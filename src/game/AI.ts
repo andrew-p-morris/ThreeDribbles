@@ -78,6 +78,32 @@ function repetitionPenalty(isOffense: boolean, move: number): number {
 	return arr.includes(move) ? -0.05 : 0
 }
 
+// Track human's last 5 "start" moves (from position 3 → 2 or 4) for Hard defense adaptation
+const HUMAN_START_HISTORY_LENGTH = 5
+const humanStartMoves: number[] = []
+
+/** Call when the human (player1) makes their first move from 3 to 2 or 4. */
+export function recordHumanStartMove(move: number) {
+	if (move !== 2 && move !== 4) return
+	humanStartMoves.push(move)
+	if (humanStartMoves.length > HUMAN_START_HISTORY_LENGTH) humanStartMoves.shift()
+}
+
+/** Clear history when starting a new Hard game. */
+export function clearHumanStartMoves() {
+	humanStartMoves.length = 0
+}
+
+/** If human chose 4 more than 2.5 times in last 5 starts, return 4; if 2 more than 2.5, return 2; else null. */
+function getHumanStartBias(): 2 | 4 | null {
+	if (humanStartMoves.length === 0) return null
+	const count4 = humanStartMoves.filter(m => m === 4).length
+	const count2 = humanStartMoves.filter(m => m === 2).length
+	if (count4 > 2.5) return 4
+	if (count2 > 2.5) return 2
+	return null
+}
+
 // Archetype biases: encourage archetype-preferred zones
 function archetypeZoneBias(archetype: Archetype, posId: number): number {
 	const pos = getPosition(posId)
@@ -134,7 +160,7 @@ function getEasyMove(gameState: GameState, isOffense: boolean): number {
 	return choice
 }
 
-// Medium AI - Good strategy, some mistakes
+// Medium AI - Archetype-based defense; first move random from 7, 9, 4, 2
 function getMediumMove(gameState: GameState, isOffense: boolean): number {
 	if (isOffense) {
 		// Consider Shoot Now and dribbles; EV under best defense with archetype bias
@@ -166,61 +192,36 @@ function getMediumMove(gameState: GameState, isOffense: boolean): number {
 		rememberMove(true, chosen === -1 ? offPos : chosen)
 		return chosen
 	} else {
-		// Mixed defensive strategy with capped contest-first
 		const offPos = gameState.player1.currentPosition
 		const defPos = gameState.player2.currentPosition
-		const defP = getPosition(defPos)
-		const options = [...defP.adjacentPositions, defPos]
+		const options = [...getPosition(defPos).adjacentPositions, defPos]
 
-		// Predict likely offense move
-		const offAdj = getOffenseAdjacentPositions(offPos, gameState.moveCount)
-		let predicted = offPos
-		let best = -Infinity
-		for (const om of offAdj) {
-			const ev = simulateBestDefenseEV(om, defPos, gameState.player1.archetype, gameState.player2.archetype)
-			if (ev > best) {
-				best = ev
-				predicted = om
-			}
+		// First move only: random from 7, 9, 4, 2 (equal distribution)
+		const MEDIUM_FIRST_MOVE_OPTIONS = [7, 9, 4, 2] as const
+		if (gameState.moveCount === 0 && offPos === 3 && defPos === 8) {
+			const choice = MEDIUM_FIRST_MOVE_OPTIONS[Math.floor(Math.random() * MEDIUM_FIRST_MOVE_OPTIONS.length)]
+			rememberMove(false, choice)
+			return choice
 		}
 
+		// After first move: only archetype-based — prioritize cutting off offense's preferred zones
+		const offAdj = getOffenseAdjacentPositions(offPos, gameState.moveCount)
 		const weights = new Map<number, number>()
 		for (const m of options) weights.set(m, 0.0001)
-		// Contest
-		if (options.includes(defPos)) {
-			weights.set(defPos, (weights.get(defPos) || 0) + 0.35)
-		}
-		// Cut-off predicted
-		let cutoffBest: number | null = null
-		let cutoffDist = Infinity
 		for (const m of options) {
-			const d = getDistance(predicted, m)
-			if (d < cutoffDist) {
-				cutoffDist = d
-				cutoffBest = m
+			let denyScore = 0
+			for (const p of offAdj) {
+				const bias = archetypeZoneBias(gameState.player1.archetype, p)
+				if (bias > 0) denyScore += bias / Math.max(1, getDistance(m, p))
 			}
+			weights.set(m, (weights.get(m) || 0) + denyScore)
 		}
-		if (cutoffBest !== null) {
-			weights.set(cutoffBest, (weights.get(cutoffBest) || 0) + 0.35)
-		}
-		// Mirror
-		for (const m of options) {
-			const d = getDistance(offPos, m)
-			const add = 0.25 * (1 / Math.max(d, 1))
-			weights.set(m, (weights.get(m) || 0) + add)
-		}
-		// Bait (steer to lower EV zones)
-		for (const m of options) {
-			const bait = -0.5 * archetypeZoneBias(gameState.player1.archetype, m)
-			weights.set(m, (weights.get(m) || 0) + Math.max(0, bait))
-		}
-		// Anti-repetition
 		for (const m of options) {
 			weights.set(m, (weights.get(m) || 0) + repetitionPenalty(false, m))
 		}
 
 		const moves = Array.from(weights.keys())
-		const selected = softmaxSample(moves, m => weights.get(m) || 0, 0.3)
+		const selected = softmaxSample(moves, m => Math.max(0.0001, weights.get(m) || 0), 0.3)
 		rememberMove(false, selected)
 		return selected
 	}
@@ -266,6 +267,11 @@ function getHardMove(gameState: GameState, isOffense: boolean): number {
 				best = ev
 				predicted = om
 			}
+		}
+		// Adapt to human tendency: if they choose 4 (or 2) more than 2.5 times in last 5 starts, favor that
+		if (offPos === 3 && offAdj.includes(2) && offAdj.includes(4)) {
+			const bias = getHumanStartBias()
+			if (bias !== null) predicted = bias
 		}
 
 		const weights = new Map<number, number>()

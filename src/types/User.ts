@@ -13,6 +13,8 @@ export type User = {
   coins?: number
   /** Number of username changes used (max 2 per account) */
   usernameChangesUsed?: number
+  /** UIDs of distinct opponents from challenge (friends) games, for ball unlocks */
+  challengeOpponentUids?: string[]
 }
 
 export type ModeStats = {

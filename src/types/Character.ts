@@ -35,17 +35,17 @@ export const CHARACTERS: Character[] = [
   {
     id: 'spark',
     name: 'Spark',
-    color: '#9900ff',
-    secondaryColor: '#6600cc',
+    color: '#b794f6',
+    secondaryColor: '#9f7aea',
     hairStyle: 'ponytail',
     skinTone: '#E8C4A8'
   },
   {
     id: 'blaze',
     name: 'Blaze',
-    color: '#ff6600',
-    secondaryColor: '#cc5200',
-    hairStyle: 'dreads',
+    color: '#ed8936',
+    secondaryColor: '#dd6b20',
+    hairStyle: 'ponytail',
     skinTone: '#6B4423'
   },
   {

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -59,6 +59,7 @@ type AuthContextType = {
   updateUserStats: (modeKey: string, won: boolean, points: number, shotsMade: number, shotsAttempted: number, threesMade: number, threesAttempted: number) => void
   updateUserUnlockedCosmetics: (newlyUnlockedIds: string[]) => void
   updateUserCoins: (delta: number) => void
+  updateUserChallengeOpponents: (opponentUid: string) => void
   updateUsername: (newUsername: string) => Promise<{ success: boolean, error?: string }>
   checkUsernameAvailable: (username: string) => Promise<boolean>
 }
@@ -76,6 +77,10 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const currentUserRef = useRef<User | null>(null)
+  useEffect(() => {
+    currentUserRef.current = currentUser
+  }, [currentUser])
 
   function persistLocalUser(user: User) {
     localStorage.setItem('guestUser', JSON.stringify(user))
@@ -419,20 +424,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function updateUserUnlockedCosmetics(newlyUnlockedIds: string[]) {
     if (newlyUnlockedIds.length === 0) return
-    setCurrentUser(prev => {
-      if (!prev) return prev
-      const existing = prev.unlockedCosmetics || []
-      const merged = [...new Set([...existing, ...newlyUnlockedIds])]
-      const next = { ...prev, unlockedCosmetics: merged }
-
-      if (!isFirebaseAvailable || !db) {
+    if (!isFirebaseAvailable || !db) {
+      setCurrentUser(prev => {
+        if (!prev) return prev
+        const existing = prev.unlockedCosmetics || []
+        const merged = [...new Set([...existing, ...newlyUnlockedIds])]
+        const next = { ...prev, unlockedCosmetics: merged }
         persistLocalUser(next)
-      } else {
-        persistFirebaseUser(prev.uid, { unlockedCosmetics: merged })
-      }
-
-      return next
-    })
+        return next
+      })
+      return
+    }
+    const uid = currentUserRef.current?.uid
+    if (!uid) return
+    const userRef = doc(db, 'users', uid)
+    getDoc(userRef).then(snap => {
+      const serverList: string[] = (snap.exists() && snap.data()?.unlockedCosmetics) ? [...snap.data().unlockedCosmetics] : []
+      const merged = [...new Set([...serverList, ...newlyUnlockedIds])]
+      return updateDoc(userRef, { unlockedCosmetics: merged }).then(() => merged)
+    }).then(merged => {
+      setCurrentUser(prev => prev && prev.uid === uid ? { ...prev, unlockedCosmetics: merged } : prev)
+    }).catch(console.error)
   }
 
   function updateUserCoins(delta: number) {
@@ -449,6 +461,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       return next
+    })
+  }
+
+  function updateUserChallengeOpponents(opponentUid: string) {
+    setCurrentUser(prev => {
+      if (!prev) return prev
+      const list = prev.challengeOpponentUids ?? []
+      if (list.includes(opponentUid)) return prev
+      const next = [...list, opponentUid]
+      const nextUser = { ...prev, challengeOpponentUids: next }
+      if (!isFirebaseAvailable || !db) {
+        persistLocalUser(nextUser)
+      } else {
+        persistFirebaseUser(prev.uid, { challengeOpponentUids: next })
+      }
+      return nextUser
     })
   }
 
@@ -572,6 +600,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateUserStats,
     updateUserUnlockedCosmetics,
     updateUserCoins,
+    updateUserChallengeOpponents,
     updateUsername,
     checkUsernameAvailable
   }

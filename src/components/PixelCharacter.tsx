@@ -136,6 +136,7 @@ function renderHeadwear(equippedCosmetics: EquippedCosmetics | undefined, pixelS
         <rect x={pixelSize * 3} y={pixelSize * 0.6} width={pixelSize * 4} height={pixelSize * 0.5} fill={cosmetic.colors.primary} stroke="#000" strokeWidth="0.3" />
       )
     case 'cap_black':
+    case 'cap_white':
       return (
         <>
           <rect x={pixelSize * 2.5} y={pixelSize * -0.2} width={pixelSize * 5} height={pixelSize * 1} fill={cosmetic.colors.primary} stroke="#000" strokeWidth="0.3" />
@@ -167,7 +168,7 @@ function renderFootwear(equippedCosmetics: EquippedCosmetics | undefined, pixelS
 }
 
 function renderJerseyStyle(equippedCosmetics: EquippedCosmetics | undefined, pixelSize: number, character: Character) {
-  if (!equippedCosmetics?.jersey_style) return null
+  if (!equippedCosmetics?.jersey_style || equippedCosmetics.jersey_style === 'character_default') return null
   const cosmetic = getCosmeticById(equippedCosmetics.jersey_style)
   if (!cosmetic) return null
 
@@ -368,7 +369,9 @@ export function PixelCharacter({ character, size = 40, equippedCosmetics, hasBas
 // For court display (smaller, SVG format)
 export function CourtPixelCharacter({ character, x, y, hasBasketball, equippedCosmetics }: { character: Character, x: number, y: number, hasBasketball?: boolean, equippedCosmetics?: EquippedCosmetics }) {
   // Determine colors based on equipped cosmetics
-  const jerseyStyle = equippedCosmetics?.jersey_style ? getCosmeticById(equippedCosmetics.jersey_style) : null
+  const jerseyStyle = equippedCosmetics?.jersey_style && equippedCosmetics.jersey_style !== 'character_default'
+    ? getCosmeticById(equippedCosmetics.jersey_style)
+    : null
   const jerseyColor = jerseyStyle?.colors.primary || character.color
   const shortsColor = jerseyStyle?.colors.secondary || character.secondaryColor
   
@@ -497,7 +500,7 @@ export function CourtPixelCharacter({ character, x, y, hasBasketball, equippedCo
         const headwear = getCosmeticById(equippedCosmetics.headwear)
         if (headwear?.id.includes('headband')) {
           return <rect x={x - 1.2} y={y - 3.8} width={2.4} height={0.3} fill={headwear.colors.primary} stroke="#000" strokeWidth="0.1" />
-        } else if (headwear?.id === 'cap_black') {
+        } else if (headwear?.id === 'cap_black' || headwear?.id === 'cap_white') {
           return (
             <>
               <rect x={x - 1.4} y={y - 4.5} width={2.8} height={0.6} fill={headwear.colors.primary} stroke="#000" strokeWidth="0.1" />
