@@ -11,8 +11,9 @@ function ProfileScreen() {
     return null
   }
 
-  const winRate = currentUser.stats.totalGames > 0
-    ? Math.round((currentUser.stats.wins / currentUser.stats.totalGames) * 100)
+  const totalGames = currentUser.stats?.totalGames ?? 0
+  const winRate = totalGames > 0
+    ? Math.round(((currentUser.stats?.wins ?? 0) / totalGames) * 100)
     : 0
 
   async function handleSignOut() {
@@ -49,19 +50,19 @@ function ProfileScreen() {
           <div className="stats-cards">
             <div className="stat-card card">
               <div className="stat-icon">🏆</div>
-              <div className="stat-value">{currentUser.stats.wins}</div>
+              <div className="stat-value">{currentUser.stats?.wins ?? 0}</div>
               <div className="stat-label">Wins</div>
             </div>
 
             <div className="stat-card card">
               <div className="stat-icon">😔</div>
-              <div className="stat-value">{currentUser.stats.losses}</div>
+              <div className="stat-value">{currentUser.stats?.losses ?? 0}</div>
               <div className="stat-label">Losses</div>
             </div>
 
             <div className="stat-card card">
               <div className="stat-icon">🎮</div>
-              <div className="stat-value">{currentUser.stats.totalGames}</div>
+              <div className="stat-value">{currentUser.stats?.totalGames ?? 0}</div>
               <div className="stat-label">Total Games</div>
             </div>
 
@@ -73,14 +74,14 @@ function ProfileScreen() {
 
             <div className="stat-card card">
               <div className="stat-icon">⭐</div>
-              <div className="stat-value">{currentUser.stats.totalPoints}</div>
+              <div className="stat-value">{currentUser.stats?.totalPoints ?? 0}</div>
               <div className="stat-label">Total Points</div>
             </div>
 
             <div className="stat-card card">
               <div className="stat-icon">❤️</div>
               <div className="stat-value">
-                {currentUser.stats.favoriteArchetype || 'None'}
+                {currentUser.stats?.favoriteArchetype ?? 'None'}
               </div>
               <div className="stat-label">Favorite</div>
             </div>

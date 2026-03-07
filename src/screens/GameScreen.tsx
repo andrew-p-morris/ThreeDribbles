@@ -4,18 +4,26 @@ import { useGame } from '../contexts/GameContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useSettings } from '../contexts/SettingsContext'
 import { subscribeToGame, setWaitingReady } from '../firebase/online'
-import Court from '../components/Court'
+import { audioManager } from '../audio/AudioManager'
 import { COURT_POSITIONS, getPosition, getOffenseAdjacentPositions } from '../game/CourtPositions'
 import './GameScreen.css'
-import { audioManager } from '../audio/AudioManager'
 
 function GameScreen() {
   const { gameState, selectPosition, resetGame, quitOnlineGame, restartCurrentGame, lastShotResult, showShotBanner, showBlockPopup, completeShotAnimation, startOnlineGameFromFirestore, onlineGameLoading, onlineMyRole } = useGame()
   const { currentUser } = useAuth()
-  const { soundMuted, volume, setSoundMuted } = useSettings()
+  const { volume, musicMuted, sfxMuted, setMusicMuted, setSfxMuted, musicVolume, musicUrl1, musicUrl2 } = useSettings()
   const navigate = useNavigate()
   const location = useLocation()
+  const musicAutoOnRef = useRef(false)
   const onlineGameStartedRef = useRef(false)
+
+  // Auto-turn music on when a game is starting (once per visit to game screen)
+  useEffect(() => {
+    if (isWaitingScreen || !gameState) return
+    if (musicAutoOnRef.current) return
+    musicAutoOnRef.current = true
+    setMusicMuted(false)
+  }, [gameState, isWaitingScreen, setMusicMuted])
   const [message, setMessage] = useState('')
   const [shotAnimation, setShotAnimation] = useState<{ from: { x: number, y: number }, show: boolean } | null>(null)
   const lastAnimatedShotRef = useRef<{ shotBy: 'player1' | 'player2', shotPosition: number, timestamp: number } | null>(null)
@@ -36,14 +44,26 @@ function GameScreen() {
       ? (gameState.winner === (currentUser?.displayName || '') ? { easy: 1, medium: 3, hard: 5 }[gameState.aiDifficulty] : 0)
       : null
 
-  // Keep AudioManager mute in sync
+  // Keep AudioManager in sync with settings
   useEffect(() => {
-    audioManager.setMuted(!!soundMuted)
-  }, [soundMuted])
-  // Keep AudioManager volume in sync
+    audioManager.setSfxMuted(!!sfxMuted)
+  }, [sfxMuted])
+  useEffect(() => {
+    audioManager.setMusicMuted(!!musicMuted)
+  }, [musicMuted])
   useEffect(() => {
     audioManager.setVolume(volume)
   }, [volume])
+  useEffect(() => {
+    audioManager.setMusicVolume(musicVolume)
+  }, [musicVolume])
+
+  // Music: play track 2 during game, stop when leaving
+  useEffect(() => {
+    const url = (musicUrl2 || '').trim()
+    if (url) audioManager.playMusic(url)
+    return () => audioManager.stopMusic()
+  }, [musicUrl2])
 
   // Start online game when navigated with gameId + myRole (skip when in waiting screen; we start after countdown)
   useEffect(() => {
@@ -626,12 +646,37 @@ function GameScreen() {
                 <button onClick={handleRestartGame} className="btn btn-secondary">
                   Restart Game
                 </button>
-                    <button 
-                      onClick={() => setSoundMuted(!soundMuted)} 
-                      className="btn btn-secondary"
-                    >
-                      {soundMuted ? '🔇 Unmute' : '🔊 Mute'} Sound
-                    </button>
+                <button
+                  onClick={() => setMusicMuted(!musicMuted)}
+                  className="btn btn-secondary"
+                >
+                  {musicMuted ? 'Unmute Music' : 'Mute Music'}
+                </button>
+                <button
+                  onClick={() => setSfxMuted(!sfxMuted)}
+                  className="btn btn-secondary"
+                >
+                  {sfxMuted ? 'Unmute SFX' : 'Mute SFX'}
+                </button>
+                <div className="pause-music-switch">
+                  <span className="pause-music-label">Music track:</span>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-small"
+                    onClick={() => { const u = (musicUrl1 || '').trim(); if (u) audioManager.playMusic(u); }}
+                    disabled={!(musicUrl1 || '').trim()}
+                  >
+                    Track 1
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-small"
+                    onClick={() => { const u = (musicUrl2 || '').trim(); if (u) audioManager.playMusic(u); }}
+                    disabled={!(musicUrl2 || '').trim()}
+                  >
+                    Track 2
+                  </button>
+                </div>
                 <button onClick={handleQuit} className="btn btn-secondary">
                   Quit to Home
                 </button>

@@ -81,6 +81,18 @@
   font-size: 14px;
 }
 
+.account-deleted-banner {
+  background: rgba(52, 199, 89, 0.2);
+  border: 1px solid rgba(52, 199, 89, 0.5);
+  color: #34c759;
+  padding: 12px 20px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .forgot-row {
   margin: -8px 0 16px;
   text-align: center;

@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useGame } from '../contexts/GameContext'
+import { useSettings } from '../contexts/SettingsContext'
 import { Archetype } from '../types/Game'
 import { CHARACTERS } from '../types/Character'
 import { PixelCharacter } from '../components/PixelCharacter'
 import { listenPendingGame } from '../firebase/online'
 import type { PendingGamePayload } from '../firebase/online'
+import { audioManager } from '../audio/AudioManager'
 import './HomeScreen.css'
 
 // Star ratings (out of 5) for archetype cards: 3PT, Mid, Paint
@@ -46,16 +48,26 @@ function ArchetypeStarsLine({ archetype }: { archetype: Archetype }) {
 function HomeScreen() {
   const { currentUser, signOut } = useAuth()
   const { startGame } = useGame()
+  const { musicUrl1, musicMuted, musicVolume } = useSettings()
   const navigate = useNavigate()
   
-  // Debug: log currentUser on mount and redirect if missing
   useEffect(() => {
-    console.log('HomeScreen mounted, currentUser:', currentUser)
+    audioManager.setMusicMuted(!!musicMuted)
+  }, [musicMuted])
+  useEffect(() => {
+    audioManager.setMusicVolume(musicVolume)
+  }, [musicVolume])
+  
+  // Music: play track 1 on home, stop when leaving
+  useEffect(() => {
+    const url = (musicUrl1 || '').trim()
+    if (url) audioManager.playMusic(url)
+    return () => audioManager.stopMusic()
+  }, [musicUrl1])
+
+  useEffect(() => {
     if (!currentUser) {
-      console.error('No user found in HomeScreen, redirecting to login')
-      setTimeout(() => {
-        navigate('/')
-      }, 100)
+      setTimeout(() => navigate('/'), 100)
     }
   }, [currentUser, navigate])
 

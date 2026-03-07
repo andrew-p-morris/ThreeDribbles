@@ -78,7 +78,7 @@ CPU flow polish:
 - System:
   - Mute toggle
   - Master volume slider (persists)
-  - Username change (max 10 chars; uniqueness checks when backend enabled)
+  - Username change (1–12 characters; uniqueness checks when backend enabled)
   - Delete account (backend integration pending)
 - Stats tab: breakdown by mode (Local, Practice Easy/Medium/Hard, Online)
 - Shop tab (placeholder for future content)
@@ -115,6 +115,10 @@ Optional Firebase setup (for auth/online):
 2) Enable Auth, Firestore, Realtime Database  
 3) Copy `.env.example` to `.env.local` and fill in the Firebase values from your project settings (or leave empty to run without Firebase).  
    `.env.local` is gitignored and must not be committed.
+
+**Backend / Firestore**
+- **Security:** Only the authenticated user can write their own `users/{uid}` document (`request.auth.uid == uid`). Configure this in Firebase Console → Firestore → Rules if not already set.
+- **Username uniqueness:** Enforced in the app, not in Firestore. Before signup and before saving a username change, the client checks `displayNameLower` (case-insensitive) in the `users` collection. No duplicate `displayNameLower` is allowed; there is no Cloud Function or rules-based uniqueness check.
 
 ## Project Structure
 ```

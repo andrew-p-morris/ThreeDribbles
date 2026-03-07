@@ -13,6 +13,7 @@ import {
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { auth, db } from '../firebase/firebase'
+import { deleteUserFirestoreData } from '../firebase/online'
 import { User, ModeStats } from '../types/User'
 import { EquippedCosmetics } from '../types/Cosmetics'
 
@@ -195,6 +196,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (userDoc.exists()) {
           const data = userDoc.data() as User
           setCurrentUser({ ...data, coins: data.coins ?? 5000, displayName: capitalizeDisplayName(data.displayName || '') })
+        } else {
+          const userData = await createUserDocument(userCredential.user, false)
+          setCurrentUser({ ...userData, coins: userData.coins ?? 5000, displayName: capitalizeDisplayName(userData.displayName) })
         }
       }
       setLoading(false)
@@ -238,7 +242,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const userCredential = await signInAnonymously(auth)
-      await createUserDocument(userCredential.user, true)
+      const userData = await createUserDocument(userCredential.user, true)
+      setCurrentUser({ ...userData, coins: userData.coins ?? 5000, displayName: capitalizeDisplayName(userData.displayName) })
+      setLoading(false)
     } catch (err) {
       // Anonymous auth disabled or failed (e.g. auth/admin-restricted-operation): use local-only guest
       console.warn('Anonymous sign-in failed, using local guest:', err)
@@ -326,8 +332,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       throw err
     }
-    const userRef = doc(db, 'users', currentUser.uid)
-    await deleteDoc(userRef)
+    try {
+      await deleteUserFirestoreData(currentUser.uid)
+    } catch (err) {
+      console.error('Firestore cleanup during account deletion:', err)
+      throw new Error('Could not delete all data. Please try again.')
+    }
     await deleteUser(firebaseUser)
     setCurrentUser(null)
   }
@@ -540,6 +550,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return { success: true }
     } else {
+      const previousDisplayName = currentUser.displayName
       try {
         const displayName = capitalizeDisplayName(trimmed)
         setCurrentUser(prev => {
@@ -551,6 +562,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: true }
       } catch (error) {
         console.error('Error updating username:', error)
+        setCurrentUser(prev => prev ? { ...prev, displayName: previousDisplayName } : prev)
         return { success: false, error: 'Failed to update username' }
       }
     }
@@ -569,13 +581,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    const database = db!
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        const userRef = doc(db, 'users', firebaseUser.uid)
+        const userRef = doc(database, 'users', firebaseUser.uid)
         const userDoc = await getDoc(userRef)
         if (userDoc.exists()) {
           const data = userDoc.data() as User
           setCurrentUser({ ...data, coins: data.coins ?? 5000, displayName: capitalizeDisplayName(data.displayName || '') })
+        } else {
+          const isGuest = firebaseUser.isAnonymous
+          const userData = await createUserDocument(firebaseUser, isGuest)
+          setCurrentUser({ ...userData, coins: userData.coins ?? 5000, displayName: capitalizeDisplayName(userData.displayName) })
         }
       } else {
         setCurrentUser(null)

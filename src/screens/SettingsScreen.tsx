@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useSettings, COURT_THEME_DATA } from '../contexts/SettingsContext'
+import { audioManager } from '../audio/AudioManager'
 import { CHARACTERS } from '../types/Character'
 import { COSMETIC_ITEMS, EquippedCosmetics, CosmeticCategory, getCosmeticById } from '../types/Cosmetics'
 import { getUnlockInstruction, getCosmeticPrice, getAllUnlockableCosmeticIds, getCourtThemePrice } from '../game/Unlocks'
@@ -20,7 +21,7 @@ const COIN_PACKAGES = [
 function SettingsScreen() {
   const navigate = useNavigate()
   const { currentUser, updateUserCharacter, updateUserCosmetics, updateUserUnlockedCosmetics, updateUserCoins, updateUsername, signOut, deleteAccount } = useAuth()
-  const { courtTheme, setCourtTheme, unlockedThemes, unlockCourtTheme, soundMuted, setSoundMuted, volume, setVolume } = useSettings()
+  const { courtTheme, setCourtTheme, unlockedThemes, unlockCourtTheme, soundMuted, setSoundMuted, volume, setVolume, musicMuted, setMusicMuted, sfxMuted, setSfxMuted, musicVolume, setMusicVolume, musicUrl1, musicUrl2, setMusicUrl1, setMusicUrl2 } = useSettings()
   
   const [newUsername, setNewUsername] = useState('')
   const [usernameError, setUsernameError] = useState('')
@@ -355,21 +356,21 @@ function SettingsScreen() {
             <div className="stats-overview card">
               <div className="stat-item">
                 <div className="stat-label">Total Games</div>
-                <div className="stat-value">{currentUser?.stats.totalGames || 0}</div>
+                <div className="stat-value">{currentUser?.stats?.totalGames ?? 0}</div>
               </div>
               <div className="stat-item">
                 <div className="stat-label">Wins</div>
-                <div className="stat-value">{currentUser?.stats.wins || 0}</div>
+                <div className="stat-value">{currentUser?.stats?.wins ?? 0}</div>
               </div>
               <div className="stat-item">
                 <div className="stat-label">Losses</div>
-                <div className="stat-value">{currentUser?.stats.losses || 0}</div>
+                <div className="stat-value">{currentUser?.stats?.losses ?? 0}</div>
               </div>
               <div className="stat-item">
                 <div className="stat-label">Win Rate</div>
                 <div className="stat-value">
-                  {currentUser?.stats.totalGames 
-                    ? Math.round((currentUser.stats.wins / currentUser.stats.totalGames) * 100)
+                  {(currentUser?.stats?.totalGames ?? 0) > 0
+                    ? Math.round(((currentUser?.stats?.wins ?? 0) / (currentUser?.stats?.totalGames ?? 1)) * 100)
                     : 0}%
                 </div>
               </div>
@@ -919,14 +920,24 @@ function SettingsScreen() {
                 <label>
                   <input
                     type="checkbox"
-                    checked={soundMuted}
-                    onChange={(e) => setSoundMuted(e.target.checked)}
+                    checked={musicMuted}
+                    onChange={(e) => setMusicMuted(e.target.checked)}
                   />
-                  <span>Mute Sound</span>
+                  <span>Mute Music</span>
                 </label>
               </div>
               <div className="setting-control">
-                <label htmlFor="volume-slider">Volume: {(Math.round(volume * 100))}%</label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={sfxMuted}
+                    onChange={(e) => setSfxMuted(e.target.checked)}
+                  />
+                  <span>Mute SFX</span>
+                </label>
+              </div>
+              <div className="setting-control">
+                <label htmlFor="volume-slider">SFX Volume: {(Math.round(volume * 100))}%</label>
                 <input
                   id="volume-slider"
                   type="range"
@@ -937,6 +948,40 @@ function SettingsScreen() {
                   onChange={(e) => setVolume(Number(e.target.value))}
                   className="volume-slider"
                 />
+              </div>
+              <div className="setting-control">
+                <label htmlFor="music-volume-slider">Music Volume: {(Math.round(musicVolume * 100))}%</label>
+                <input
+                  id="music-volume-slider"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={musicVolume}
+                  onChange={(e) => setMusicVolume(Number(e.target.value))}
+                  className="volume-slider"
+                />
+              </div>
+              <div className="setting-control music-track-switch">
+                <span className="setting-label">Music:</span>
+                <div className="music-switch-buttons">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-small"
+                    onClick={() => { const u = (musicUrl1 || '').trim(); if (u) audioManager.playMusic(u); }}
+                    disabled={!(musicUrl1 || '').trim()}
+                  >
+                    Track 1
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-small"
+                    onClick={() => { const u = (musicUrl2 || '').trim(); if (u) audioManager.playMusic(u); }}
+                    disabled={!(musicUrl2 || '').trim()}
+                  >
+                    Track 2
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -985,7 +1030,7 @@ function SettingsScreen() {
                     className="btn btn-primary"
                     disabled={
                       !newUsername.trim() ||
-                      newUsername.trim() === currentUser?.displayName ||
+                      newUsername.trim().toUpperCase() === (currentUser?.displayName ?? '').toUpperCase() ||
                       (currentUser?.usernameChangesUsed ?? 0) >= 2
                     }
                   >

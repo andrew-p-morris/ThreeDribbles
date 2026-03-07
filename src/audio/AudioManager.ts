@@ -1,21 +1,69 @@
-// Lightweight WebAudio-based SFX to avoid asset files
+// Lightweight WebAudio-based SFX + music playback (MP3 from URLs)
 class AudioManager {
   private ctx: AudioContext | null = null
   private masterGain: GainNode | null = null
-  private isMuted = false
+  private sfxMuted = false
+  private musicMuted = true
   private volume = 0.8
+  private musicVolume = 0.5
+  private musicEl: HTMLAudioElement | null = null
 
+  /** Legacy: sets both SFX and music muted for backward compatibility. */
   setMuted(muted: boolean) {
-    this.isMuted = muted
+    this.sfxMuted = muted
+    this.musicMuted = muted
+    this.updateMusicVolume()
     if (this.masterGain) {
       this.masterGain.gain.value = muted ? 0 : this.volume
     }
   }
+
   setVolume(v: number) {
     this.volume = Math.max(0, Math.min(1, v))
     if (this.masterGain) {
-      this.masterGain.gain.value = this.isMuted ? 0 : this.volume
+      this.masterGain.gain.value = this.sfxMuted ? 0 : this.volume
     }
+  }
+
+  setSfxMuted(muted: boolean) {
+    this.sfxMuted = muted
+    if (this.masterGain) {
+      this.masterGain.gain.value = muted ? 0 : this.volume
+    }
+  }
+
+  setMusicMuted(muted: boolean) {
+    this.musicMuted = muted
+    this.updateMusicVolume()
+  }
+
+  setMusicVolume(v: number) {
+    this.musicVolume = Math.max(0, Math.min(1, v))
+    this.updateMusicVolume()
+  }
+
+  private updateMusicVolume() {
+    if (!this.musicEl) return
+    this.musicEl.volume = this.musicMuted ? 0 : this.musicVolume
+  }
+
+  /** Play background music from URL (looped). Pass empty string to stop. */
+  playMusic(url: string) {
+    if (this.musicEl) {
+      this.musicEl.pause()
+      this.musicEl.src = ''
+      this.musicEl = null
+    }
+    if (!url || url.trim() === '') return
+    const el = new Audio(url)
+    el.loop = true
+    el.volume = this.musicMuted ? 0 : this.musicVolume
+    el.play().catch(() => {})
+    this.musicEl = el
+  }
+
+  stopMusic() {
+    this.playMusic('')
   }
 
   private ensureContext() {
@@ -24,9 +72,8 @@ class AudioManager {
       if (!Ctx) return
       this.ctx = new Ctx()
       this.masterGain = this.ctx.createGain()
-      this.masterGain.gain.value = this.isMuted ? 0 : this.volume
+      this.masterGain.gain.value = this.sfxMuted ? 0 : this.volume
       this.masterGain.connect(this.ctx.destination)
-      // resume on user gesture if suspended
       if (this.ctx.state === 'suspended') {
         const resume = () => {
           this.ctx && this.ctx.resume()
@@ -36,7 +83,6 @@ class AudioManager {
         window.addEventListener('pointerdown', resume)
         window.addEventListener('keydown', resume)
       }
-      // pause sounds when tab hidden
       document.addEventListener('visibilitychange', () => {
         if (!this.ctx) return
         if (document.hidden && this.ctx.state === 'running') {
@@ -48,9 +94,8 @@ class AudioManager {
     }
   }
 
-  // Swish: short filtered noise burst with fast decay
   playSwish(volume = 0.6) {
-    if (this.isMuted) return
+    if (this.sfxMuted) return
     this.ensureContext()
     if (!this.ctx || !this.masterGain) return
     const ctx = this.ctx
@@ -72,9 +117,8 @@ class AudioManager {
     src.start()
   }
 
-  // Clank: two metallic pings with quick decay
   playClank(volume = 0.7) {
-    if (this.isMuted) return
+    if (this.sfxMuted) return
     this.ensureContext()
     if (!this.ctx || !this.masterGain) return
     const ctx = this.ctx
@@ -96,9 +140,8 @@ class AudioManager {
     makePing(800, 0.02, volume * 0.6)
   }
 
-  // Whistle: short sine with slight vibrato
   playWhistle(volume = 0.35, duration = 0.6) {
-    if (this.isMuted) return
+    if (this.sfxMuted) return
     this.ensureContext()
     if (!this.ctx || !this.masterGain) return
     const ctx = this.ctx
@@ -108,7 +151,6 @@ class AudioManager {
     g.gain.value = 0
     osc.connect(g).connect(this.masterGain)
     const t = ctx.currentTime
-    // base frequency and vibrato
     const base = 1200
     const lfo = ctx.createOscillator()
     lfo.type = 'sine'
@@ -117,7 +159,6 @@ class AudioManager {
     lfoGain.gain.value = 20
     lfo.connect(lfoGain).connect(osc.frequency)
     osc.frequency.setValueAtTime(base, t)
-    // attack/decay
     g.gain.setValueAtTime(0, t)
     g.gain.linearRampToValueAtTime(volume, t + 0.04)
     g.gain.exponentialRampToValueAtTime(0.0001, t + duration)
@@ -129,5 +170,3 @@ class AudioManager {
 }
 
 export const audioManager = new AudioManager()
-
-

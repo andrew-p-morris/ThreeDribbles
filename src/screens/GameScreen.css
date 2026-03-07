@@ -533,6 +533,30 @@
   font-size: 12px;
 }
 
+.pause-music-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pause-music-switch .pause-music-label {
+  font-size: 12px;
+  color: rgba(244, 228, 193, 0.9);
+  margin-right: 4px;
+}
+
+.pause-music-switch .btn-small {
+  flex: 1;
+  min-width: 80px;
+  font-size: 11px;
+  padding: 6px 10px;
+}
+
+.pause-buttons .btn-small {
+  width: auto;
+}
+
 /* --- Phone & tablet breakpoints (768 tablet, 480 phone, 390 narrow) --- */
 
 @media (max-width: 768px) {

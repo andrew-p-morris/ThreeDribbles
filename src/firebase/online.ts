@@ -12,7 +12,9 @@ import {
   limit,
   serverTimestamp,
   writeBatch,
-  Unsubscribe
+  Unsubscribe,
+  type CollectionReference,
+  type Firestore
 } from 'firebase/firestore'
 import { db } from './firebase'
 import type { GameState } from '../types/Game'
@@ -21,14 +23,18 @@ import type { ModeStats } from '../types/User'
 const MATCHMAKING_COLLECTION = 'matchmakingQueue'
 const GAMES_COLLECTION = 'games'
 
-if (!db) throw new Error('Firebase db not initialized')
+function getDb(): Firestore {
+  if (!db) throw new Error('Firebase db not initialized')
+  return db
+}
 
 // --- Matchmaking ---
 
 export type QueueEntry = { uid: string; displayName: string; createdAt: number }
 
 export async function addToMatchmakingQueue(uid: string, displayName: string): Promise<void> {
-  await setDoc(doc(db!, MATCHMAKING_COLLECTION, uid), {
+  const database = getDb()
+  await setDoc(doc(database, MATCHMAKING_COLLECTION, uid), {
     uid,
     displayName,
     createdAt: serverTimestamp()
@@ -36,12 +42,14 @@ export async function addToMatchmakingQueue(uid: string, displayName: string): P
 }
 
 export async function removeFromMatchmakingQueue(uid: string): Promise<void> {
-  await deleteDoc(doc(db!, MATCHMAKING_COLLECTION, uid))
+  const database = getDb()
+  await deleteDoc(doc(database, MATCHMAKING_COLLECTION, uid))
 }
 
 export function listenMatchmakingQueue(callback: (entries: QueueEntry[]) => void): Unsubscribe {
+  const database = getDb()
   const q = query(
-    collection(db!, MATCHMAKING_COLLECTION),
+    collection(database, MATCHMAKING_COLLECTION),
     orderBy('createdAt', 'asc')
   )
   return onSnapshot(q, (snap) => {
@@ -77,8 +85,9 @@ export type GameDoc = {
 }
 
 export async function createGameDoc(gameId: string, gameState: GameState): Promise<void> {
+  const database = getDb()
   const now = Date.now()
-  await setDoc(doc(db!, GAMES_COLLECTION, gameId), {
+  await setDoc(doc(database, GAMES_COLLECTION, gameId), {
     gameState,
     lastShotResult: null,
     createdAt: now,
@@ -93,15 +102,17 @@ export async function setPendingGameForUser(
   fromUid?: string,
   fromDisplayName?: string
 ): Promise<void> {
+  const database = getDb()
   const payload: Record<string, unknown> = { gameId }
   if (fromUid != null) payload.fromUid = fromUid
   if (fromDisplayName != null) payload.fromDisplayName = fromDisplayName
-  await setDoc(doc(db!, 'users', opponentUid, 'pendingGame', 'current'), payload)
+  await setDoc(doc(database, 'users', opponentUid, 'pendingGame', 'current'), payload)
 }
 
 /** Remove pending game after the opponent has joined or declined. */
 export async function clearPendingGameForUser(uid: string): Promise<void> {
-  await deleteDoc(doc(db!, 'users', uid, 'pendingGame', 'current'))
+  const database = getDb()
+  await deleteDoc(doc(database, 'users', uid, 'pendingGame', 'current'))
 }
 
 export type PendingGamePayload = { gameId: string; fromUid?: string; fromDisplayName?: string }
@@ -111,7 +122,8 @@ export function listenPendingGame(
   uid: string,
   onPending: (data: PendingGamePayload | null) => void
 ): Unsubscribe {
-  const ref = doc(db!, 'users', uid, 'pendingGame', 'current')
+  const database = getDb()
+  const ref = doc(database, 'users', uid, 'pendingGame', 'current')
   return onSnapshot(ref, (snap) => {
     if (!snap.exists()) {
       onPending(null)
@@ -135,7 +147,8 @@ export async function updateGameDoc(
   gameState: GameState,
   lastShotResult?: GameDoc['lastShotResult']
 ): Promise<void> {
-  const ref = doc(db!, GAMES_COLLECTION, gameId)
+  const database = getDb()
+  const ref = doc(database, GAMES_COLLECTION, gameId)
   await setDoc(
     ref,
     {
@@ -149,16 +162,18 @@ export async function updateGameDoc(
 
 /** Call when player2 lands on waiting screen; sets 5s countdown for both players. Uses server timestamp so both clients see the same countdown regardless of device clock skew. */
 export async function setWaitingReady(gameId: string): Promise<void> {
+  const database = getDb()
   const now = Date.now()
   await setDoc(
-    doc(db!, GAMES_COLLECTION, gameId),
+    doc(database, GAMES_COLLECTION, gameId),
     { player2ReadyAt: serverTimestamp(), updatedAt: now },
     { merge: true }
   )
 }
 
 export function subscribeToGame(gameId: string, onUpdate: (data: GameDoc) => void): Unsubscribe {
-  return onSnapshot(doc(db!, GAMES_COLLECTION, gameId), (snap) => {
+  const database = getDb()
+  return onSnapshot(doc(database, GAMES_COLLECTION, gameId), (snap) => {
     if (!snap.exists()) return
     const data = snap.data() as GameDoc
     onUpdate(data)
@@ -166,7 +181,8 @@ export function subscribeToGame(gameId: string, onUpdate: (data: GameDoc) => voi
 }
 
 export async function getGameDoc(gameId: string): Promise<GameDoc | null> {
-  const snap = await getDoc(doc(db!, GAMES_COLLECTION, gameId))
+  const database = getDb()
+  const snap = await getDoc(doc(database, GAMES_COLLECTION, gameId))
   if (!snap.exists()) return null
   return snap.data() as GameDoc
 }
@@ -181,7 +197,8 @@ export async function sendFriendRequest(
   fromUid: string,
   fromDisplayName: string
 ): Promise<void> {
-  const ref = doc(db!, 'users', toUid, 'friendRequests', fromUid)
+  const database = getDb()
+  const ref = doc(database, 'users', toUid, 'friendRequests', fromUid)
   await setDoc(ref, {
     fromUid,
     fromDisplayName,
@@ -190,7 +207,8 @@ export async function sendFriendRequest(
 }
 
 export async function getFriendRequests(uid: string): Promise<{ fromUid: string; fromDisplayName: string }[]> {
-  const snap = await getDocs(collection(db!, 'users', uid, 'friendRequests'))
+  const database = getDb()
+  const snap = await getDocs(collection(database, 'users', uid, 'friendRequests'))
   return snap.docs.map((d) => {
     const data = d.data()
     return { fromUid: data.fromUid, fromDisplayName: data.fromDisplayName || '' }
@@ -203,27 +221,30 @@ export async function acceptFriendRequest(
   fromUid: string,
   fromDisplayName: string
 ): Promise<void> {
-  const batch = writeBatch(db!)
-  batch.set(doc(db!, 'users', myUid, 'friends', fromUid), {
+  const database = getDb()
+  const batch = writeBatch(database)
+  batch.set(doc(database, 'users', myUid, 'friends', fromUid), {
     uid: fromUid,
     displayName: fromDisplayName,
     addedAt: serverTimestamp()
   })
-  batch.set(doc(db!, 'users', fromUid, 'friends', myUid), {
+  batch.set(doc(database, 'users', fromUid, 'friends', myUid), {
     uid: myUid,
     displayName: myDisplayName,
     addedAt: serverTimestamp()
   })
-  batch.delete(doc(db!, 'users', myUid, 'friendRequests', fromUid))
+  batch.delete(doc(database, 'users', myUid, 'friendRequests', fromUid))
   await batch.commit()
 }
 
 export async function declineFriendRequest(myUid: string, fromUid: string): Promise<void> {
-  await deleteDoc(doc(db!, 'users', myUid, 'friendRequests', fromUid))
+  const database = getDb()
+  await deleteDoc(doc(database, 'users', myUid, 'friendRequests', fromUid))
 }
 
 export async function getFriends(uid: string): Promise<FriendDoc[]> {
-  const snap = await getDocs(collection(db!, 'users', uid, 'friends'))
+  const database = getDb()
+  const snap = await getDocs(collection(database, 'users', uid, 'friends'))
   return snap.docs.map((d) => {
     const data = d.data()
     return {
@@ -235,19 +256,21 @@ export async function getFriends(uid: string): Promise<FriendDoc[]> {
 }
 
 export async function removeFriend(myUid: string, friendUid: string): Promise<void> {
-  const batch = writeBatch(db!)
-  batch.delete(doc(db!, 'users', myUid, 'friends', friendUid))
-  batch.delete(doc(db!, 'users', friendUid, 'friends', myUid))
+  const database = getDb()
+  const batch = writeBatch(database)
+  batch.delete(doc(database, 'users', myUid, 'friends', friendUid))
+  batch.delete(doc(database, 'users', friendUid, 'friends', myUid))
   await batch.commit()
 }
 
 export async function lookupUserByDisplayName(displayName: string): Promise<{ uid: string; displayName: string } | null> {
+  const database = getDb()
   const q = displayName.trim()
   if (!q) return null
   const qLower = q.toLowerCase()
   // Prefer case-insensitive lookup via displayNameLower (set on signup/username update)
   const byLower = query(
-    collection(db!, 'users'),
+    collection(database, 'users'),
     where('displayNameLower', '==', qLower),
     limit(1)
   )
@@ -259,7 +282,7 @@ export async function lookupUserByDisplayName(displayName: string): Promise<{ ui
   }
   // Fallback: exact match for existing users without displayNameLower
   const byExact = query(
-    collection(db!, 'users'),
+    collection(database, 'users'),
     where('displayName', '==', q),
     limit(1)
   )
@@ -275,13 +298,66 @@ export async function canSendFriendRequest(
   myUid: string,
   targetUid: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const database = getDb()
   const [friendSnap, requestSnap] = await Promise.all([
-    getDoc(doc(db!, 'users', myUid, 'friends', targetUid)),
-    getDoc(doc(db!, 'users', targetUid, 'friendRequests', myUid))
+    getDoc(doc(database, 'users', myUid, 'friends', targetUid)),
+    getDoc(doc(database, 'users', targetUid, 'friendRequests', myUid))
   ])
   if (friendSnap.exists()) return { ok: false, error: 'Already friends.' }
   if (requestSnap.exists()) return { ok: false, error: 'Friend request already sent.' }
   return { ok: true }
+}
+
+const BATCH_SIZE = 500
+
+/** Delete all documents in a collection in batches (Firestore limit 500 per batch). */
+async function deleteCollection(ref: CollectionReference): Promise<void> {
+  const database = getDb()
+  let snap = await getDocs(ref)
+  while (!snap.empty) {
+    const batch = writeBatch(database)
+    const docs = snap.docs.slice(0, BATCH_SIZE)
+    for (const d of docs) {
+      batch.delete(d.ref)
+    }
+    await batch.commit()
+    snap = await getDocs(ref)
+  }
+}
+
+/** Permanently delete all Firestore data for a user (for account deletion). Run before Auth deleteUser(). */
+export async function deleteUserFirestoreData(uid: string): Promise<void> {
+  const database = getDb()
+  await removeFromMatchmakingQueue(uid)
+  await clearPendingGameForUser(uid)
+
+  const friends = await getFriends(uid)
+  for (const f of friends) {
+    await deleteDoc(doc(database, 'users', f.uid, 'friends', uid))
+  }
+
+  await deleteCollection(collection(database, 'users', uid, 'friendRequests'))
+  await deleteCollection(collection(database, 'users', uid, 'friends'))
+
+  const gamesSnap = await getDocs(collection(database, GAMES_COLLECTION))
+  const gameIdsToDelete: string[] = []
+  gamesSnap.docs.forEach((d) => {
+    const data = d.data() as GameDoc
+    const gs = data.gameState
+    if (gs?.player1?.uid === uid || gs?.player2?.uid === uid) {
+      gameIdsToDelete.push(d.id)
+    }
+  })
+  for (let i = 0; i < gameIdsToDelete.length; i += BATCH_SIZE) {
+    const batch = writeBatch(database)
+    const chunk = gameIdsToDelete.slice(i, i + BATCH_SIZE)
+    for (const gameId of chunk) {
+      batch.delete(doc(database, GAMES_COLLECTION, gameId))
+    }
+    await batch.commit()
+  }
+
+  await deleteDoc(doc(database, 'users', uid))
 }
 
 // --- Leaderboard ---
@@ -298,8 +374,9 @@ export type LeaderboardRow = {
 }
 
 export async function getLeaderboard(limitCount: number = 100): Promise<LeaderboardRow[]> {
+  const database = getDb()
   const q = query(
-    collection(db!, 'users'),
+    collection(database, 'users'),
     where('stats.online.totalGames', '>=', 1),
     orderBy('stats.online.totalGames', 'desc'),
     limit(limitCount)

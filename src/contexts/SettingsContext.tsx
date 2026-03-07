@@ -11,6 +11,16 @@ type SettingsContextType = {
   setSoundMuted: (muted: boolean) => void
   volume: number
   setVolume: (v: number) => void
+  musicMuted: boolean
+  setMusicMuted: (muted: boolean) => void
+  sfxMuted: boolean
+  setSfxMuted: (muted: boolean) => void
+  musicVolume: number
+  setMusicVolume: (v: number) => void
+  musicUrl1: string
+  musicUrl2: string
+  setMusicUrl1: (url: string) => void
+  setMusicUrl2: (url: string) => void
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined)
@@ -54,6 +64,25 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const v = stored ? Number(stored) : 0.8
     return isNaN(v) ? 0.8 : Math.max(0, Math.min(1, v))
   })
+  const [musicMuted, setMusicMutedState] = useState<boolean>(() => {
+    const stored = localStorage.getItem('musicMuted')
+    return stored !== null ? JSON.parse(stored) : true
+  })
+  const [sfxMuted, setSfxMutedState] = useState<boolean>(() => {
+    const stored = localStorage.getItem('sfxMuted')
+    return stored ? JSON.parse(stored) : false
+  })
+  const [musicVolume, setMusicVolumeState] = useState<number>(() => {
+    const stored = localStorage.getItem('musicVolume')
+    const v = stored ? Number(stored) : 0.5
+    return isNaN(v) ? 0.5 : Math.max(0, Math.min(1, v))
+  })
+  const [musicUrl1, setMusicUrl1State] = useState<string>(() => {
+    return localStorage.getItem('musicUrl1') || '/menu-music.mp3'
+  })
+  const [musicUrl2, setMusicUrl2State] = useState<string>(() => {
+    return localStorage.getItem('musicUrl2') || ''
+  })
 
   useEffect(() => {
     localStorage.setItem('unlockedThemes', JSON.stringify(unlockedThemes))
@@ -65,12 +94,42 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem('volume', String(volume))
   }, [volume])
+  useEffect(() => {
+    localStorage.setItem('musicMuted', JSON.stringify(musicMuted))
+  }, [musicMuted])
+  useEffect(() => {
+    localStorage.setItem('sfxMuted', JSON.stringify(sfxMuted))
+  }, [sfxMuted])
+  useEffect(() => {
+    localStorage.setItem('musicVolume', String(musicVolume))
+  }, [musicVolume])
+  useEffect(() => {
+    localStorage.setItem('musicUrl1', musicUrl1)
+  }, [musicUrl1])
+  useEffect(() => {
+    localStorage.setItem('musicUrl2', musicUrl2)
+  }, [musicUrl2])
 
   function setSoundMuted(muted: boolean) {
     setSoundMutedState(muted)
   }
   function setVolume(v: number) {
     setVolumeState(Math.max(0, Math.min(1, v)))
+  }
+  function setMusicMuted(muted: boolean) {
+    setMusicMutedState(muted)
+  }
+  function setSfxMuted(muted: boolean) {
+    setSfxMutedState(muted)
+  }
+  function setMusicVolume(v: number) {
+    setMusicVolumeState(Math.max(0, Math.min(1, v)))
+  }
+  function setMusicUrl1(url: string) {
+    setMusicUrl1State(url)
+  }
+  function setMusicUrl2(url: string) {
+    setMusicUrl2State(url)
   }
 
   function setCourtTheme(theme: CourtThemeId) {
@@ -98,7 +157,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     soundMuted,
     setSoundMuted,
     volume,
-    setVolume
+    setVolume,
+    musicMuted,
+    setMusicMuted,
+    sfxMuted,
+    setSfxMuted,
+    musicVolume,
+    setMusicVolume,
+    musicUrl1,
+    musicUrl2,
+    setMusicUrl1,
+    setMusicUrl2
   }
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>

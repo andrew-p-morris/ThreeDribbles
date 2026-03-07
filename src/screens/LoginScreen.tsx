@@ -1,6 +1,8 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useSettings } from '../contexts/SettingsContext'
+import { audioManager } from '../audio/AudioManager'
 import './LoginScreen.css'
 
 function LoginScreen() {
@@ -16,7 +18,31 @@ function LoginScreen() {
   const [forgotMessage, setForgotMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const { signUp, signIn, signInAsGuest, resetPassword } = useAuth()
+  const { musicUrl1, musicMuted, musicVolume } = useSettings()
   const navigate = useNavigate()
+  const location = useLocation()
+  const showAccountDeleted = location.state?.accountDeleted === true
+
+  // Music on login/signup screen (track 1)
+  useEffect(() => {
+    audioManager.setMusicMuted(!!musicMuted)
+  }, [musicMuted])
+  useEffect(() => {
+    audioManager.setMusicVolume(musicVolume)
+  }, [musicVolume])
+  useEffect(() => {
+    const url = (musicUrl1 || '').trim()
+    if (url) audioManager.playMusic(url)
+    return () => audioManager.stopMusic()
+  }, [musicUrl1])
+
+  useEffect(() => {
+    if (!showAccountDeleted) return
+    const t = setTimeout(() => {
+      navigate('/', { replace: true, state: {} })
+    }, 5000)
+    return () => clearTimeout(t)
+  }, [showAccountDeleted, navigate])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -81,6 +107,12 @@ function LoginScreen() {
       <div className="login-container">
         <h1 className="game-title">THREE DRIBBLES</h1>
         <p className="game-subtitle">RETRO BASKETBALL</p>
+
+        {showAccountDeleted && (
+          <div className="account-deleted-banner" role="status">
+            Account deleted.
+          </div>
+        )}
 
         <div className="card login-card">
           <h2>{isSignUp ? 'Create Account' : showForgotPassword ? 'Reset Password' : 'Sign In'}</h2>
