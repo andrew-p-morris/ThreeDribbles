@@ -78,7 +78,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return isNaN(v) ? 0.5 : Math.max(0, Math.min(1, v))
   })
   const [musicUrl1, setMusicUrl1State] = useState<string>(() => {
-    return localStorage.getItem('musicUrl1') || '/menu-music.mp3'
+    return localStorage.getItem('musicUrl1') || `${import.meta.env.BASE_URL || '/'}menu-music.mp3`
   })
   const [musicUrl2, setMusicUrl2State] = useState<string>(() => {
     return localStorage.getItem('musicUrl2') || ''

@@ -215,7 +215,7 @@ function HomeScreen() {
                   Settings
                 </button>
                 <button
-                  onClick={currentUser?.isGuest ? () => navigate(-1) : handleSignOut}
+                  onClick={currentUser?.isGuest ? () => navigate('/', { replace: true }) : handleSignOut}
                   className="btn-icon btn-header-text"
                 >
                   {currentUser?.isGuest ? 'Back' : 'Sign Out'}
