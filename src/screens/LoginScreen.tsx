@@ -127,8 +127,10 @@ function LoginScreen() {
                 </div>
               )}
               <div className="form-group">
-                <label>Username or email</label>
+                <label htmlFor="forgot-email">Username or email</label>
                 <input
+                  id="forgot-email"
+                  name="forgot-email"
                   type="text"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
@@ -157,8 +159,10 @@ function LoginScreen() {
             {isSignUp ? (
               <>
                 <div className="form-group">
-                  <label>Username</label>
+                  <label htmlFor="signup-username">Username</label>
                   <input
+                    id="signup-username"
+                    name="username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -169,8 +173,10 @@ function LoginScreen() {
                   <p className="input-hint">Letters and numbers only, 1–12 characters.</p>
                 </div>
                 <div className="form-group">
-                  <label>Email</label>
+                  <label htmlFor="signup-email">Email</label>
                   <input
+                    id="signup-email"
+                    name="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -179,8 +185,10 @@ function LoginScreen() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Password</label>
+                  <label htmlFor="signup-password">Password</label>
                   <input
+                    id="signup-password"
+                    name="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -189,8 +197,10 @@ function LoginScreen() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Confirm password</label>
+                  <label htmlFor="signup-confirm-password">Confirm password</label>
                   <input
+                    id="signup-confirm-password"
+                    name="confirm-password"
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -202,8 +212,10 @@ function LoginScreen() {
             ) : (
               <>
                 <div className="form-group">
-                  <label>Username or email</label>
+                  <label htmlFor="login-username-or-email">Username or email</label>
                   <input
+                    id="login-username-or-email"
+                    name="username-or-email"
                     type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -212,8 +224,10 @@ function LoginScreen() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Password</label>
+                  <label htmlFor="login-password">Password</label>
                   <input
+                    id="login-password"
+                    name="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
