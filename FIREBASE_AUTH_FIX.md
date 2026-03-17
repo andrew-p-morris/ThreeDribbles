@@ -1,6 +1,6 @@
 # Fix Firebase auth errors
 
-**ThreeDribbles project number: 329219445112**
+**Project: ThreeDribblesNew (threedribblesnew)**
 
 ---
 
@@ -16,16 +16,15 @@ The key in `.env.local` may be missing, wrong, or **invalidated** (e.g. the one 
 5. **Restart the dev server** (Vite only reads `.env.local` at startup).
 
 If Firebase Console doesn’t show a valid key, create one in **Google Cloud Console**:  
-https://console.cloud.google.com/apis/credentials?project=threedribbles-7416d  
+https://console.cloud.google.com/apis/credentials?project=threedribblesnew  
 → **Create credentials** → **API key** → copy the key → paste into `VITE_FIREBASE_API_KEY` in `.env.local`.
 
 ---
 
 ## "Identity Toolkit API has not been used" (403)
 
-Your app is using an API key that belongs to a **different** project (e.g. 613836604046). Use the key from **ThreeDribbles** (project 329219445112) as above.
+Your app is using an API key that belongs to a **different** project. Use the key from **ThreeDribblesNew** (threedribblesnew) as above.
 
 **Or** enable the API for the project your key belongs to:
 
-- **https://console.developers.google.com/apis/api/identitytoolkit.googleapis.com/overview?project=613836604046**  
-  (Replace the project number if your error shows another one.) Click **Enable**, wait 1–2 minutes, then retry.
+- Open **Google Cloud Console** → select that project → **APIs & Services** → **Library** → search "Identity Toolkit" → **Enable**. Wait 1–2 minutes, then retry.

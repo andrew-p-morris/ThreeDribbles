@@ -34,5 +34,5 @@ Keep a running log of costs and limits here. Update the tables as you get bills 
 
 ## Quick reference
 
-- **Firebase Console** → [Usage and billing](https://console.firebase.google.com/project/threedribbles-7416d/usage) (replace project ID if different).
+- **Firebase Console** → [Usage and billing](https://console.firebase.google.com/project/threedribblesnew/usage).
 - **Set budget alerts** in [Google Cloud Billing](https://console.cloud.google.com/billing) for the project so you get notified before surprise charges (Blaze only).
