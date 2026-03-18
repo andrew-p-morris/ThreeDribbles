@@ -23,6 +23,7 @@ import {
   type FriendDoc
 } from '../firebase/online'
 import { initializeGame } from '../game/GameEngine'
+import type { Archetype } from '../types/Game'
 import { CHARACTERS } from '../types/Character'
 import './OnlineMenuScreen.css'
 
@@ -35,6 +36,9 @@ function OnlineMenuScreen() {
   const [activeTab, setActiveTab] = useState<'play' | 'leaderboard' | 'friends'>('play')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('wins')
+
+  // Creator archetype for Quick Match and Challenge
+  const [selectedArchetype, setSelectedArchetype] = useState<Archetype>('midrange')
 
   // Quick Match
   const [quickMatchSearching, setQuickMatchSearching] = useState(false)
@@ -184,11 +188,11 @@ function OnlineMenuScreen() {
 
           const gameId = `${first.uid}_${second.uid}_${Date.now()}`
           const player1Char = currentUser.selectedCharacter || 'rocket'
-          const player2Char = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)].id
+          const player2Char = 'rocket'
           const player1 = {
             uid: first.uid,
             username: first.displayName,
-            archetype: 'midrange' as const,
+            archetype: selectedArchetype,
             score: 0,
             currentPosition: 3,
             characterId: player1Char,
@@ -290,11 +294,11 @@ function OnlineMenuScreen() {
     setChallengingFriendUid(friendUid)
     const gameId = `${currentUser.uid}_${friendUid}_${Date.now()}`
     const player1Char = currentUser.selectedCharacter || 'rocket'
-    const player2Char = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)].id
+    const player2Char = 'rocket'
     const player1 = {
       uid: currentUser.uid,
       username: currentUser.displayName,
-      archetype: 'midrange' as const,
+      archetype: selectedArchetype,
       score: 0,
       currentPosition: 3,
       characterId: player1Char,
@@ -415,6 +419,23 @@ function OnlineMenuScreen() {
 
         {activeTab === 'play' && (
           <div className="play-section">
+            <div className="card archetype-picker-card">
+              <h3>Choose your archetype</h3>
+              <div className="archetype-buttons">
+                {(['midrange', 'shooter', 'defender'] as const).map((arch) => (
+                  <button
+                    key={arch}
+                    type="button"
+                    className={`archetype-btn ${selectedArchetype === arch ? 'selected' : ''}`}
+                    onClick={() => setSelectedArchetype(arch)}
+                  >
+                    {arch === 'midrange' && '🎯 Mid Range'}
+                    {arch === 'shooter' && '🌟 Shooter'}
+                    {arch === 'defender' && '🛡️ Defender'}
+                  </button>
+                ))}
+              </div>
+            </div>
             {quickMatchError && <p className="online-error">{quickMatchError}</p>}
             <button
               onClick={handleQuickMatch}
@@ -502,6 +523,23 @@ function OnlineMenuScreen() {
             )}
             {challengeError && <p className="online-error">{challengeError}</p>}
             {friendsError && <p className="online-error">{friendsError}</p>}
+            <div className="card archetype-picker-card">
+              <h3>Archetype for challenge</h3>
+              <div className="archetype-buttons">
+                {(['midrange', 'shooter', 'defender'] as const).map((arch) => (
+                  <button
+                    key={arch}
+                    type="button"
+                    className={`archetype-btn ${selectedArchetype === arch ? 'selected' : ''}`}
+                    onClick={() => setSelectedArchetype(arch)}
+                  >
+                    {arch === 'midrange' && '🎯 Mid Range'}
+                    {arch === 'shooter' && '🌟 Shooter'}
+                    {arch === 'defender' && '🛡️ Defender'}
+                  </button>
+                ))}
+              </div>
+            </div>
             {friendsLoading && <p className="muted">Loading...</p>}
             {!friendsLoading && (
               <>

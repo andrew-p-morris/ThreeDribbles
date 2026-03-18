@@ -21,7 +21,7 @@ const COIN_PACKAGES = [
 function SettingsScreen() {
   const navigate = useNavigate()
   const { currentUser, updateUserCharacter, updateUserCosmetics, updateUserUnlockedCosmetics, updateUserCoins, updateUsername, signOut, deleteAccount } = useAuth()
-  const { courtTheme, setCourtTheme, unlockedThemes, unlockCourtTheme, soundMuted: _soundMuted, setSoundMuted: _setSoundMuted, volume, setVolume, musicMuted, setMusicMuted, sfxMuted, setSfxMuted, musicVolume, setMusicVolume, musicUrl1, musicUrl2, setMusicUrl1: _setMusicUrl1, setMusicUrl2: _setMusicUrl2 } = useSettings()
+  const { courtTheme, setCourtTheme, unlockedThemes, unlockCourtTheme, soundMuted: _soundMuted, setSoundMuted: _setSoundMuted, volume, setVolume, musicMuted, setMusicMuted, sfxMuted, setSfxMuted, musicVolume, setMusicVolume, musicUrl1, musicUrl2, setMusicUrl1: _setMusicUrl1, setMusicUrl2: _setMusicUrl2, newUnlockBadgeIds, addNewUnlockBadgeIds, clearNewUnlockBadges } = useSettings()
   
   const [newUsername, setNewUsername] = useState('')
   const [usernameError, setUsernameError] = useState('')
@@ -55,6 +55,10 @@ function SettingsScreen() {
       setEquippedCosmetics(currentUser.equippedCosmetics || {})
     }
   }, [currentUser])
+
+  useEffect(() => {
+    return () => clearNewUnlockBadges()
+  }, [clearNewUnlockBadges])
 
   function handleCharacterSelect(characterId: string) {
     setSelectedCharacter(characterId)
@@ -324,6 +328,7 @@ function SettingsScreen() {
                         <div className="cosmetic-name">{item.name}</div>
                         {isEquipped && <div className="equipped-badge">✓</div>}
                               {isInPreview && !isEquipped && <div className="preview-badge">Try</div>}
+                        {newUnlockBadgeIds.includes(item.id) && <span className="new-unlock-badge" aria-hidden>!</span>}
                       </button>
                     )
                   })}
@@ -352,6 +357,7 @@ function SettingsScreen() {
                     <div className="theme-emoji">{data.emoji}</div>
                     <div className="theme-name">{data.name}</div>
                     {courtTheme === id && <div className="selected-badge">✓</div>}
+                    {newUnlockBadgeIds.includes(id) && <span className="new-unlock-badge" aria-hidden>!</span>}
                   </button>
                 ))}
             </div>
@@ -508,6 +514,7 @@ function SettingsScreen() {
                                   <div className="cosmetic-emoji">{entry.emoji}</div>
                                   <div className="cosmetic-name">{entry.name}</div>
                                 </div>
+                                {owned && newUnlockBadgeIds.includes(entry.id) && <span className="new-unlock-badge" aria-hidden>!</span>}
                                 <div className="shop-card-meta">
                                   <span className="shop-price">🪙 {price}</span>
                                   {owned ? (
@@ -527,6 +534,7 @@ function SettingsScreen() {
                                           onConfirm: () => {
                                             updateUserCoins(-price)
                                             unlockCourtTheme(entry.id as CourtThemeId)
+                                            addNewUnlockBadgeIds([entry.id])
                                             setSelectedShopItemId(null)
                                           }
                                         })
@@ -560,6 +568,7 @@ function SettingsScreen() {
                                   <div className="cosmetic-emoji">{item.emoji}</div>
                                   <div className="cosmetic-name">{item.name}</div>
                                 </button>
+                                {owned && newUnlockBadgeIds.includes(item.id) && <span className="new-unlock-badge" aria-hidden>!</span>}
                                 <div className="shop-card-meta">
                                   <span className="shop-price">🪙 {price}</span>
                                   {owned ? (
@@ -578,6 +587,7 @@ function SettingsScreen() {
                                           onConfirm: () => {
                                             updateUserCoins(-price)
                                             updateUserUnlockedCosmetics([item.id])
+                                            addNewUnlockBadgeIds([item.id])
                                             if (cosmeticItem) {
                                               setShopPreviewOutfit(prev => {
                                                 const next = { ...prev }
@@ -648,6 +658,7 @@ function SettingsScreen() {
                                     onConfirm: () => {
                                       updateUserCoins(-price)
                                       unlockCourtTheme(selectedShopItemId as CourtThemeId)
+                                      addNewUnlockBadgeIds([selectedShopItemId])
                                       setSelectedShopItemId(null)
                                     }
                                   })
@@ -704,6 +715,7 @@ function SettingsScreen() {
                                       onConfirm: () => {
                                         updateUserCoins(-price)
                                         updateUserUnlockedCosmetics([selectedShopItemId])
+                                        addNewUnlockBadgeIds([selectedShopItemId])
                                         if (item) {
                                           setShopPreviewOutfit(prev => {
                                             const next = { ...prev }

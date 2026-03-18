@@ -49,6 +49,7 @@ class AudioManager {
 
   /** Play background music from URL (looped). Pass empty string to stop. */
   playMusic(url: string) {
+    if (true) return // Music disabled for now; remove this line to re-enable
     if (this.musicEl) {
       this.musicEl.pause()
       this.musicEl.src = ''

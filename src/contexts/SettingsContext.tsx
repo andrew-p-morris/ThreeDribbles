@@ -21,6 +21,9 @@ type SettingsContextType = {
   musicUrl2: string
   setMusicUrl1: (url: string) => void
   setMusicUrl2: (url: string) => void
+  newUnlockBadgeIds: string[]
+  addNewUnlockBadgeIds: (ids: string[]) => void
+  clearNewUnlockBadges: () => void
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined)
@@ -83,6 +86,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [musicUrl2, setMusicUrl2State] = useState<string>(() => {
     return localStorage.getItem('musicUrl2') || ''
   })
+  const [newUnlockBadgeIds, setNewUnlockBadgeIds] = useState<string[]>([])
+
+  function addNewUnlockBadgeIds(ids: string[]) {
+    if (ids.length === 0) return
+    setNewUnlockBadgeIds(prev => [...new Set([...prev, ...ids])])
+  }
+  function clearNewUnlockBadges() {
+    setNewUnlockBadgeIds([])
+  }
 
   useEffect(() => {
     localStorage.setItem('unlockedThemes', JSON.stringify(unlockedThemes))
@@ -167,7 +179,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     musicUrl1,
     musicUrl2,
     setMusicUrl1,
-    setMusicUrl2
+    setMusicUrl2,
+    newUnlockBadgeIds,
+    addNewUnlockBadgeIds,
+    clearNewUnlockBadges
   }
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>

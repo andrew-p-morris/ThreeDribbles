@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           totalPoints: 0,
           favoriteArchetype: null
         },
-        coins: 5000,
+        coins: isGuest ? 0 : 500,
         createdAt: Date.now()
       }
       return userData
@@ -144,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           totalPoints: 0,
           favoriteArchetype: null
         },
-        coins: 5000,
+        coins: isGuest ? 0 : 500,
         createdAt: Date.now()
       }
       await setDoc(userRef, { ...userData, displayNameLower: displayName.toLowerCase() })
@@ -192,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw err
     }
     const userData = await createUserDocument(userCredential.user, false, trimmed)
-    setCurrentUser({ ...userData, coins: userData.coins ?? 5000, displayName: capitalizeDisplayName(userData.displayName) })
+    setCurrentUser({ ...userData, coins: userData.coins ?? 500, displayName: capitalizeDisplayName(userData.displayName) })
     setLoading(false)
   }
 
@@ -230,10 +230,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userDoc = await getDoc(userRef)
         if (userDoc.exists()) {
           const data = userDoc.data() as User
-          setCurrentUser({ ...data, coins: data.coins ?? 5000, displayName: capitalizeDisplayName(data.displayName || '') })
+          setCurrentUser({ ...data, coins: data.coins ?? 500, displayName: capitalizeDisplayName(data.displayName || '') })
         } else {
           const userData = await createUserDocument(userCredential.user, false)
-          setCurrentUser({ ...userData, coins: userData.coins ?? 5000, displayName: capitalizeDisplayName(userData.displayName) })
+          setCurrentUser({ ...userData, coins: userData.coins ?? 500, displayName: capitalizeDisplayName(userData.displayName) })
         }
       }
       setLoading(false)
@@ -265,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           totalPoints: 0,
           favoriteArchetype: null
         },
-        coins: 5000,
+        coins: 0,
         createdAt: Date.now()
       }
     }
@@ -281,7 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const userCredential = await signInAnonymously(auth)
       const userData = await createUserDocument(userCredential.user, true)
-      setCurrentUser({ ...userData, coins: userData.coins ?? 5000, displayName: capitalizeDisplayName(userData.displayName) })
+      setCurrentUser({ ...userData, coins: userData.coins ?? 0, displayName: capitalizeDisplayName(userData.displayName) })
       setLoading(false)
     } catch (err) {
       // Anonymous auth disabled or failed (e.g. auth/admin-restricted-operation): use local-only guest
@@ -633,7 +633,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (storedGuest) {
         console.log('Restoring guest user from localStorage')
         const parsed = JSON.parse(storedGuest)
-        setCurrentUser({ ...parsed, coins: parsed.coins ?? 5000, displayName: capitalizeDisplayName(parsed.displayName || '') })
+        setCurrentUser({ ...parsed, coins: parsed.coins ?? 0, displayName: capitalizeDisplayName(parsed.displayName || '') })
       }
       setLoading(false)
       return
@@ -662,7 +662,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           if (userDoc.exists()) {
             const data = userDoc.data() as User
-            setCurrentUser({ ...data, coins: data.coins ?? 5000, displayName: capitalizeDisplayName(data.displayName || '') })
+            setCurrentUser({ ...data, coins: data.coins ?? (data.isGuest ? 0 : 500), displayName: capitalizeDisplayName(data.displayName || '') })
           } else {
             // Do not create the doc here — only signUp and signInAsGuest create new user docs.
             // This avoids a race where the listener would write "Player" and overwrite the sign-up username.

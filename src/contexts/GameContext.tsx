@@ -5,6 +5,7 @@ import { getAIMove, recordHumanStartMove, clearHumanStartMoves } from '../game/A
 import { checkUnlocks } from '../game/Unlocks'
 import { CHARACTERS } from '../types/Character'
 import { useAuth } from './AuthContext'
+import { useSettings } from './SettingsContext'
 import { getGameDoc, subscribeToGame, updateGameDoc } from '../firebase/online'
 
 type GameContextType = {
@@ -37,6 +38,7 @@ export function useGame() {
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const { currentUser, updateUserStats, updateUserUnlockedCosmetics, updateUserCoins, updateUserChallengeOpponents } = useAuth()
+  const { addNewUnlockBadgeIds } = useSettings()
   const [gameState, setGameState] = useState<GameState | null>(null)
   const gameStateRef = useRef<GameState | null>(null)
   
@@ -141,6 +143,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           ...gameDoc.gameState,
           player2: {
             ...gameDoc.gameState.player2,
+            characterId: currentUser.selectedCharacter || 'rocket',
             equippedCosmetics: myCosmetics
           }
         }
@@ -160,6 +163,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setLastShotResult({ ...data.lastShotResult, shotBy: data.lastShotResult.shotBy, shotPosition: data.lastShotResult.shotPosition })
           setShowShotBanner(false)
           pendingShotStateRef.current = remote
+          updateGameState(remote)
           return
         }
         if (pendingShotStateRef.current) return
@@ -541,6 +545,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const newlyUnlocked = checkUnlocks(endedGameState, currentUnlocked, unlockContext)
     if (newlyUnlocked.length > 0) {
       updateUserUnlockedCosmetics(newlyUnlocked)
+      addNewUnlockBadgeIds(newlyUnlocked)
     }
 
     if (won && endedGameState.mode === 'ai' && endedGameState.aiDifficulty) {

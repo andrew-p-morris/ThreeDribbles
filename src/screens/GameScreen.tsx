@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useSettings } from '../contexts/SettingsContext'
-import { subscribeToGame, setWaitingReady } from '../firebase/online'
+import { subscribeToGame, setWaitingReady, getGameDoc, updateGameDoc } from '../firebase/online'
+import type { Archetype } from '../types/Game'
 import { audioManager } from '../audio/AudioManager'
 import { COURT_POSITIONS, getPosition, getOffenseAdjacentPositions } from '../game/CourtPositions'
 import Court from '../components/Court'
@@ -20,6 +21,8 @@ function GameScreen() {
 
   const [waitingCountdown, setWaitingCountdown] = useState<number | null>(null)
   const [waitingComplete, setWaitingComplete] = useState(false)
+  const [player2Archetype, setPlayer2Archetype] = useState<Archetype>('midrange')
+  const [player2ReadySent, setPlayer2ReadySent] = useState(false)
 
   const routeState = location.state as { gameId?: string; myRole?: 'player1' | 'player2'; waiting?: boolean } | null
   const isWaitingScreen = Boolean(routeState?.waiting && routeState?.gameId && routeState?.myRole && !waitingComplete)
@@ -89,7 +92,7 @@ function GameScreen() {
     serverTimeOffsetRef.current = 0
     setWaitingCountdown(null)
     if (myRole === 'player2') {
-      setWaitingReady(gameId).catch(() => {})
+      setPlayer2ReadySent(false)
     }
     const unsub = subscribeToGame(gameId, (data) => {
       // Prefer player2ReadyAt (server timestamp) for consistent countdown across devices
@@ -371,8 +374,35 @@ function GameScreen() {
     setShowRestartConfirm(false)
   }
 
+  async function handlePlayer2Ready() {
+    if (!routeState?.gameId || routeState?.myRole !== 'player2' || !currentUser || player2ReadySent) return
+    const gameId = routeState.gameId
+    setPlayer2ReadySent(true)
+    try {
+      const doc = await getGameDoc(gameId)
+      if (!doc?.gameState) return
+      const merged = {
+        ...doc.gameState,
+        player2: {
+          ...doc.gameState.player2,
+          archetype: player2Archetype,
+          characterId: currentUser.selectedCharacter || 'rocket',
+          equippedCosmetics: currentUser.equippedCosmetics ?? {}
+        }
+      }
+      await updateGameDoc(gameId, merged)
+      await setWaitingReady(gameId)
+    } catch (e) {
+      console.error('Failed to set ready:', e)
+      setPlayer2ReadySent(false)
+    }
+  }
+
   // Waiting screen (challenge accepted; 5s countdown then start)
   if (isWaitingScreen) {
+    const myRole = routeState?.myRole
+    const showPlayer2Archetype = myRole === 'player2' && !player2ReadySent
+
     return (
       <div className="screen game-screen">
         <div className="game-container waiting-container">
@@ -382,9 +412,30 @@ function GameScreen() {
             </button>
           </header>
           <div className="waiting-content">
-            {waitingCountdown === null ? (
+            {showPlayer2Archetype ? (
+              <>
+                <p className="waiting-message">Choose your archetype</p>
+                <div className="waiting-archetype-buttons">
+                  {(['midrange', 'shooter', 'defender'] as const).map((arch) => (
+                    <button
+                      key={arch}
+                      type="button"
+                      className={`waiting-archetype-btn ${player2Archetype === arch ? 'selected' : ''}`}
+                      onClick={() => setPlayer2Archetype(arch)}
+                    >
+                      {arch === 'midrange' && 'Mid Range'}
+                      {arch === 'shooter' && 'Shooter'}
+                      {arch === 'defender' && 'Defender'}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="btn-ready" onClick={handlePlayer2Ready}>
+                  Ready
+                </button>
+              </>
+            ) : waitingCountdown === null ? (
               <p className="waiting-message">
-                {routeState?.myRole === 'player1' ? 'Waiting for opponent to accept...' : 'Joining game...'}
+                {myRole === 'player1' ? 'Waiting for opponent...' : 'Joining game...'}
               </p>
             ) : waitingCountdown > 0 ? (
               <>

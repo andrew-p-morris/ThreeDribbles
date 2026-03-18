@@ -100,6 +100,51 @@
   gap: 16px;
 }
 
+.archetype-picker-card {
+  padding: 16px;
+  background: #3d2817;
+  border: 3px solid #000;
+  text-align: center;
+}
+
+.archetype-picker-card h3 {
+  font-size: 14px;
+  margin: 0 0 12px 0;
+  color: #f4e4c1;
+}
+
+.archetype-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.archetype-btn {
+  padding: 10px 14px;
+  font-size: 12px;
+  font-family: 'Press Start 2P', monospace;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #f4e4c1;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  min-width: 120px;
+  flex: 1 1 0;
+}
+
+.archetype-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.archetype-btn.selected {
+  background: #ff6b35;
+  border-color: #000;
+  color: #000;
+}
+
 .online-card {
   padding: 32px;
   text-align: center;
@@ -430,6 +475,18 @@
     width: 100%;
     justify-content: flex-end;
     flex-wrap: wrap;
+  }
+
+  .archetype-buttons {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .archetype-btn {
+    width: 100%;
+    min-width: 0;
+    flex: none;
   }
 }
 
