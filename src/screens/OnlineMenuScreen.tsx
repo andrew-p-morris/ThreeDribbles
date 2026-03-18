@@ -24,7 +24,6 @@ import {
 } from '../firebase/online'
 import { initializeGame } from '../game/GameEngine'
 import type { Archetype } from '../types/Game'
-import { CHARACTERS } from '../types/Character'
 import './OnlineMenuScreen.css'
 
 type SortBy = 'rank' | 'wins' | 'winRate' | 'fgPercent' | 'threePtPercent'

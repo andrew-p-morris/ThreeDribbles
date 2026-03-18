@@ -32,8 +32,8 @@ class AudioManager {
     }
   }
 
-  setMusicMuted(muted: boolean) {
-    this.musicMuted = muted
+  setMusicMuted(_muted: boolean) {
+    this.musicMuted = true // Music off at all times; use _muted to respect settings again
     this.updateMusicVolume()
   }
 
@@ -49,7 +49,6 @@ class AudioManager {
 
   /** Play background music from URL (looped). Pass empty string to stop. */
   playMusic(url: string) {
-    if (true) return // Music disabled for now; remove this line to re-enable
     if (this.musicEl) {
       this.musicEl.pause()
       this.musicEl.src = ''
