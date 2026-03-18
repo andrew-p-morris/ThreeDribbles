@@ -752,14 +752,28 @@
   color: rgba(244, 228, 193, 0.7);
 }
 
+.username-change .btn-secondary {
+  margin-top: 8px;
+}
+
+.username-edit-label {
+  display: block;
+  font-size: 12px;
+  color: rgba(244, 228, 193, 0.9);
+  margin-bottom: 4px;
+}
+
 .username-input-group {
   display: flex;
   gap: 12px;
   align-items: center;
+  width: 100%;
 }
 
 .username-input {
   flex: 1;
+  min-width: 0;
+  width: 100%;
   padding: 10px 12px;
   background: rgba(0, 0, 0, 0.3);
   border: 2px solid #000;
@@ -767,6 +781,7 @@
   font-family: 'Press Start 2P', monospace;
   font-size: 12px;
   text-transform: uppercase;
+  box-sizing: border-box;
 }
 
 .username-input:focus {

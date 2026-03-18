@@ -26,6 +26,7 @@ function SettingsScreen() {
   const [newUsername, setNewUsername] = useState('')
   const [usernameError, setUsernameError] = useState('')
   const [usernameSuccess, setUsernameSuccess] = useState(false)
+  const [usernameEditOpen, setUsernameEditOpen] = useState(false)
   
   const [selectedCharacter, setSelectedCharacter] = useState<string>(currentUser?.selectedCharacter || 'rocket')
   const [equippedCosmetics, setEquippedCosmetics] = useState<EquippedCosmetics>(currentUser?.equippedCosmetics || {})
@@ -37,10 +38,17 @@ function SettingsScreen() {
   const [confirmBuy, setConfirmBuy] = useState<{ name: string; emoji: string; price: number; onConfirm: () => void } | null>(null)
   const [activeTab, setActiveTab] = useState<'character' | 'cosmetics' | 'court' | 'stats' | 'shop' | 'faq' | 'system'>('character')
   const buyCoinsSectionRef = useRef<HTMLDivElement>(null)
+  const usernameInputRef = useRef<HTMLInputElement>(null)
   const [courtPreviewTheme, setCourtPreviewTheme] = useState<CourtThemeId | null>(null)
   
   const userUnlockedCosmetics = currentUser?.unlockedCosmetics || []
-  
+
+  useEffect(() => {
+    if (usernameEditOpen && (currentUser?.usernameChangesUsed ?? 0) < 2) {
+      usernameInputRef.current?.focus()
+    }
+  }, [usernameEditOpen, currentUser?.usernameChangesUsed])
+
   useEffect(() => {
     if (currentUser) {
       setSelectedCharacter(currentUser.selectedCharacter || 'rocket')
@@ -995,53 +1003,85 @@ function SettingsScreen() {
                 <div className="username-changes-remaining">
                   {2 - (currentUser?.usernameChangesUsed ?? 0)} of 2 username changes remaining
                 </div>
-                <div className="username-input-group">
-                  <input
-                    type="text"
-                    value={newUsername}
-                    onChange={(e) => {
-                      setNewUsername(e.target.value)
-                      setUsernameError('')
-                      setUsernameSuccess(false)
-                    }}
-                    placeholder="Enter new username"
-                    maxLength={12}
-                    className="username-input"
-                    disabled={(currentUser?.usernameChangesUsed ?? 0) >= 2}
-                  />
+                {!usernameEditOpen ? (
                   <button
-                    onClick={async () => {
-                      if (!newUsername.trim()) {
-                        setUsernameError('Username cannot be empty')
-                        return
-                      }
-                      
-                      const result = await updateUsername(newUsername.trim())
-                      if (result.success) {
-                        setUsernameSuccess(true)
-                        setUsernameError('')
-                        setNewUsername('')
-                        setTimeout(() => setUsernameSuccess(false), 3000)
-                      } else {
-                        setUsernameError(result.error || 'Failed to update username')
-                        setUsernameSuccess(false)
-                      }
-                    }}
+                    type="button"
+                    onClick={() => setUsernameEditOpen(true)}
                     className="btn btn-primary"
-                    disabled={
-                      !newUsername.trim() ||
-                      newUsername.trim().toUpperCase() === (currentUser?.displayName ?? '').toUpperCase() ||
-                      (currentUser?.usernameChangesUsed ?? 0) >= 2
-                    }
+                    disabled={(currentUser?.usernameChangesUsed ?? 0) >= 2}
                   >
-                    Save
+                    Edit username
                   </button>
-                </div>
-                {usernameError && (
-                  <div className="username-error">{usernameError}</div>
-                )}
-                {usernameSuccess && (
-                  <div className="username-success">Username updated successfully!</div>
+                ) : (
+                  <>
+                    <label htmlFor="new-username-input" className="username-edit-label">
+                      New username:
+                    </label>
+                    <div className="username-input-group">
+                      <input
+                        id="new-username-input"
+                        ref={usernameInputRef}
+                        type="text"
+                        value={newUsername}
+                        onChange={(e) => {
+                          setNewUsername(e.target.value)
+                          setUsernameError('')
+                          setUsernameSuccess(false)
+                        }}
+                        placeholder="Enter new username"
+                        maxLength={12}
+                        className="username-input"
+                        disabled={(currentUser?.usernameChangesUsed ?? 0) >= 2}
+                        autoFocus
+                        aria-label="New username"
+                      />
+                      <button
+                        onClick={async () => {
+                          if (!newUsername.trim()) {
+                            setUsernameError('Username cannot be empty')
+                            return
+                          }
+                          const result = await updateUsername(newUsername.trim())
+                          if (result.success) {
+                            setUsernameSuccess(true)
+                            setUsernameError('')
+                            setNewUsername('')
+                            setTimeout(() => setUsernameSuccess(false), 3000)
+                            setUsernameEditOpen(false)
+                          } else {
+                            setUsernameError(result.error || 'Failed to update username')
+                            setUsernameSuccess(false)
+                          }
+                        }}
+                        className="btn btn-primary"
+                        disabled={
+                          !newUsername.trim() ||
+                          newUsername.trim().toUpperCase() === (currentUser?.displayName ?? '').toUpperCase() ||
+                          (currentUser?.usernameChangesUsed ?? 0) >= 2
+                        }
+                      >
+                        Save
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUsernameEditOpen(false)
+                        setNewUsername('')
+                        setUsernameError('')
+                        setUsernameSuccess(false)
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                    {usernameError && (
+                      <div className="username-error">{usernameError}</div>
+                    )}
+                    {usernameSuccess && (
+                      <div className="username-success">Username updated successfully!</div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

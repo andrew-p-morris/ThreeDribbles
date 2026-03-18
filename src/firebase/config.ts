@@ -1,15 +1,11 @@
-// Firebase configuration from environment variables.
-// Copy .env.example to .env.local and fill in values from Firebase Console.
-// Never commit .env.local or any file containing real API keys.
-const env = import.meta.env
-
+// Firebase configuration (hardcoded). No env vars or fallback.
 export const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY ?? '',
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN ?? '',
-  projectId: env.VITE_FIREBASE_PROJECT_ID ?? '',
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET ?? '',
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? '',
-  appId: env.VITE_FIREBASE_APP_ID ?? '',
-  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID ?? '',
-  databaseURL: env.VITE_FIREBASE_DATABASE_URL ?? ''
+  apiKey: 'AIzaSyCLlxkmqJ_smjL-vmPy-GgJk1W2fdgb6eQ',
+  authDomain: 'threedribblesnew.firebaseapp.com',
+  projectId: 'threedribblesnew',
+  storageBucket: 'threedribblesnew.firebasestorage.app',
+  messagingSenderId: '477765123579',
+  appId: '1:477765123579:web:5b1cd35cc529766ad39f5e',
+  measurementId: 'G-B3ZDP4DNVY',
+  databaseURL: ''
 }

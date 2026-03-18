@@ -31,7 +31,10 @@ function capitalizeDisplayName(name: string): string {
 
 /** Returns an error message if invalid, or null if valid. Expects trimmed input. */
 function validateUsername(username: string): string | null {
-  if (username.length === 0 || username.length > USERNAME_MAX_LENGTH) {
+  if (username.length === 0) {
+    return 'Please pick a username.'
+  }
+  if (username.length > USERNAME_MAX_LENGTH) {
     return 'Username must be 1–12 characters.'
   }
   if (!/^[a-zA-Z0-9]+$/.test(username)) {
@@ -93,10 +96,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateDoc(userRef, patch).catch(console.error)
   }
 
+  function defaultDisplayName(firebaseUser: FirebaseUser, isGuest: boolean, username?: string): string {
+    if (username?.trim()) return username.trim()
+    if (isGuest) return `Guest${Math.floor(Math.random() * 9999)}`
+    const local = firebaseUser.email?.split('@')[0]?.trim()
+    return local || 'User'
+  }
+
   async function createUserDocument(firebaseUser: FirebaseUser, isGuest: boolean, username?: string) {
     if (!isFirebaseAvailable || !db) {
       // Create local user without Firebase
-      const raw = username || (isGuest ? `Guest${Math.floor(Math.random() * 9999)}` : 'Player')
+      const raw = defaultDisplayName(firebaseUser, isGuest, username)
       const displayName = capitalizeDisplayName(raw)
       const userData: User = {
         uid: firebaseUser.uid,
@@ -120,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userDoc = await getDoc(userRef)
     
     if (!userDoc.exists()) {
-      const raw = username || (isGuest ? `Guest${Math.floor(Math.random() * 9999)}` : 'Player')
+      const raw = defaultDisplayName(firebaseUser, isGuest, username)
       const displayName = capitalizeDisplayName(raw)
       const userData: User = {
         uid: firebaseUser.uid,
@@ -141,24 +151,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return userData
     } else {
       const data = userDoc.data() as User
+      const existingDisplay = (data.displayName || '').trim()
+      const isDefaultName = !existingDisplay || existingDisplay === 'Player' || existingDisplay === 'PLAYER'
+      if (username && isDefaultName) {
+        const displayName = capitalizeDisplayName(username)
+        await updateDoc(userRef, { displayName, displayNameLower: username.toLowerCase() })
+        return { ...data, displayName }
+      }
       return { ...data, displayName: capitalizeDisplayName(data.displayName || '') }
     }
   }
 
   async function signUp(email: string, password: string, username: string) {
     if (!isFirebaseAvailable || !auth) {
-      throw new Error('Firebase is not configured. Please set up Firebase to use authentication.')
+      throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY to .env.local and restart the dev server.')
     }
     const trimmed = username.trim()
     const validationError = validateUsername(trimmed)
     if (validationError) {
       throw new Error(validationError)
     }
+    // #region agent log
+    fetch('http://127.0.0.1:7612/ingest/81882968-0dde-49e0-a384-e7df3b91b315',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'517300'},body:JSON.stringify({sessionId:'517300',runId:'repro',hypothesisId:'H1',location:'AuthContext.tsx:signUp',message:'signUp before checkUsernameAvailable',data:{flow:'signUp'},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const isAvailable = await checkUsernameAvailable(trimmed)
     if (!isAvailable) {
-      throw new Error('Username already taken')
+      throw new Error('That username is taken — pick a different one.')
     }
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+    const emailTrimmed = email.trim().toLowerCase()
+    if (!emailTrimmed) {
+      throw new Error('Please enter an email.')
+    }
+    let userCredential
+    try {
+      userCredential = await createUserWithEmailAndPassword(auth, emailTrimmed, password)
+    } catch (err: any) {
+      if (err?.code === 'auth/email-already-in-use') {
+        throw new Error('That email is already in use. Sign in or use a different email.')
+      }
+      throw err
+    }
     const userData = await createUserDocument(userCredential.user, false, trimmed)
     setCurrentUser({ ...userData, coins: userData.coins ?? 5000, displayName: capitalizeDisplayName(userData.displayName) })
     setLoading(false)
@@ -166,9 +198,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signIn(usernameOrEmail: string, password: string) {
     if (!isFirebaseAvailable || !auth) {
-      throw new Error('Firebase is not configured. Please set up Firebase to use authentication.')
+      throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY to .env.local and restart the dev server.')
     }
     let email = usernameOrEmail.trim()
+    if (email.includes('@')) {
+      email = email.toLowerCase()
+    }
     if (!email.includes('@') && db) {
       const usersRef = collection(db, 'users')
       const trimmed = usernameOrEmail.trim()
@@ -203,6 +238,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false)
     } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7612/ingest/81882968-0dde-49e0-a384-e7df3b91b315',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'517300'},body:JSON.stringify({sessionId:'517300',runId:'repro',hypothesisId:'H2_H3',location:'AuthContext.tsx:signIn_catch',message:'signIn error',data:{code:err?.code,message:err?.message},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       const code = err?.code
       if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
         throw new Error('Invalid username or password')
@@ -265,7 +303,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function resetPassword(emailOrUsername: string) {
     if (!isFirebaseAvailable || !auth) {
-      throw new Error('Firebase is not configured. Password reset is not available.')
+      throw new Error('Firebase is not configured. Add VITE_FIREBASE_API_KEY to .env.local and restart the dev server.')
     }
     let email = emailOrUsername.trim()
     if (!email.includes('@') && db) {
@@ -338,6 +376,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Firestore cleanup during account deletion:', err)
       throw new Error('Could not delete all data. Please try again.')
     }
+    // Remove the user from Firebase Auth so the email can be reused for a new account.
     await deleteUser(firebaseUser)
     setCurrentUser(null)
   }
@@ -491,6 +530,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function checkUsernameAvailable(username: string): Promise<boolean> {
+    // #region agent log
+    fetch('http://127.0.0.1:7612/ingest/81882968-0dde-49e0-a384-e7df3b91b315',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'517300'},body:JSON.stringify({sessionId:'517300',runId:'repro',hypothesisId:'H1',location:'AuthContext.tsx:checkUsernameAvailable',message:'checkUsernameAvailable entry',data:{hasAuth:!!auth?.currentUser,uid:auth?.currentUser?.uid??null},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (!isFirebaseAvailable || !db) {
       // For local mode, check localStorage
       const localUsers = localStorage.getItem('localUsernames')
@@ -510,8 +552,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (querySnapshot.empty) return true
       if (currentUser && querySnapshot.docs.some(d => d.id === currentUser.uid)) return true
       return false
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking username:', error)
+      const isPermissionError = error?.code === 'permission-denied' || error?.message?.includes('permission') || error?.message?.includes('insufficient')
+      if (isPermissionError) {
+        throw new Error('Unable to check username. Ensure Firestore rules allow username lookups for sign-up.')
+      }
       return false
     }
   }
@@ -519,6 +565,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function updateUsername(newUsername: string): Promise<{ success: boolean, error?: string }> {
     if (!currentUser) {
       return { success: false, error: 'No user logged in' }
+    }
+    if ((currentUser.usernameChangesUsed ?? 0) >= 2) {
+      return { success: false, error: 'You have used all 2 username changes for this account.' }
     }
 
     const trimmed = newUsername.trim()
@@ -530,39 +579,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check if username is available
     const isAvailable = await checkUsernameAvailable(trimmed)
     if (!isAvailable) {
-      return { success: false, error: 'Username already taken' }
+      return { success: false, error: 'That username is taken — pick a different one.' }
     }
 
-    // Update username
+    // Update username (only increment count when name actually changes)
+    const displayName = capitalizeDisplayName(trimmed)
+    const nameUnchanged = displayName === capitalizeDisplayName(currentUser.displayName || '')
+    const newCount = nameUnchanged ? (currentUser.usernameChangesUsed ?? 0) : (currentUser.usernameChangesUsed ?? 0) + 1
+
     if (!isFirebaseAvailable || !db) {
-      const displayName = capitalizeDisplayName(trimmed)
       setCurrentUser(prev => {
         if (!prev) return prev
-        const next = { ...prev, displayName }
+        const next = { ...prev, displayName, usernameChangesUsed: newCount }
         persistLocalUser(next)
         return next
       })
-      const localUsernames = localStorage.getItem('localUsernames')
-      const usernames = localUsernames ? JSON.parse(localUsernames) : []
-      if (!usernames.includes(trimmed.toLowerCase())) {
-        usernames.push(trimmed.toLowerCase())
-        localStorage.setItem('localUsernames', JSON.stringify(usernames))
+      if (!nameUnchanged) {
+        const localUsernames = localStorage.getItem('localUsernames')
+        const usernames = localUsernames ? JSON.parse(localUsernames) : []
+        if (!usernames.includes(trimmed.toLowerCase())) {
+          usernames.push(trimmed.toLowerCase())
+          localStorage.setItem('localUsernames', JSON.stringify(usernames))
+        }
       }
       return { success: true }
     } else {
       const previousDisplayName = currentUser.displayName
+      const previousCount = currentUser.usernameChangesUsed ?? 0
       try {
-        const displayName = capitalizeDisplayName(trimmed)
         setCurrentUser(prev => {
           if (!prev) return prev
-          return { ...prev, displayName }
+          return { ...prev, displayName, usernameChangesUsed: newCount }
         })
         const userRef = doc(db, 'users', currentUser.uid)
-        await updateDoc(userRef, { displayName, displayNameLower: displayName.toLowerCase() })
+        await updateDoc(userRef, {
+          displayName,
+          displayNameLower: displayName.toLowerCase(),
+          usernameChangesUsed: newCount
+        })
         return { success: true }
       } catch (error) {
         console.error('Error updating username:', error)
-        setCurrentUser(prev => prev ? { ...prev, displayName: previousDisplayName } : prev)
+        setCurrentUser(prev => prev ? { ...prev, displayName: previousDisplayName, usernameChangesUsed: previousCount } : prev)
         return { success: false, error: 'Failed to update username' }
       }
     }
@@ -606,9 +664,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const data = userDoc.data() as User
             setCurrentUser({ ...data, coins: data.coins ?? 5000, displayName: capitalizeDisplayName(data.displayName || '') })
           } else {
-            const isGuest = firebaseUser.isAnonymous
-            const userData = await createUserDocument(firebaseUser, isGuest)
-            setCurrentUser({ ...userData, coins: userData.coins ?? 5000, displayName: capitalizeDisplayName(userData.displayName) })
+            // Do not create the doc here — only signUp and signInAsGuest create new user docs.
+            // This avoids a race where the listener would write "Player" and overwrite the sign-up username.
+            setCurrentUser(null)
           }
         } else {
           setCurrentUser(null)
